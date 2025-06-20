@@ -1,0 +1,21 @@
+{
+  "name": "horse-pedigree-api",
+  "version": "1.0.0",
+  "description": "REST API and frontend for horse pedigree database",
+  "main": "src/app.js",
+  "scripts": {
+    "start": "node src/app.js",
+    "dev": "nodemon src/app.js",
+    "migrate": "npx knex migrate:latest",
+    "seed": "npx knex seed:run"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "knex": "^2.5.1",
+    "pg": "^8.11.3",
+    "joi": "^17.9.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}
