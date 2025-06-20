@@ -7,6 +7,7 @@ const breedRules = {
   'xx+xx': 'xx',
   'xx+xo': 'xo',
   'xx+xxoo': 'xxoo',
+  'oo + xxoo': 'xxoo',
 };
 
 exports.calculateBreed = async (knex, sireId, damId) => {
@@ -64,11 +65,11 @@ exports.getOffspring = async (knex, horseId, filters = {}) => {
 
 exports.generatePedigreeHtml = async (knex, horseId, depth) => {
   const horse = await exports.getPedigree(knex, horseId, depth);
-  if (!horse) return '<html><body><p>Horse not found</p></body></html>';
+  if (!horse) return '<html><body><p>Koń nie znaleziony</p></body></html>';
 
   const renderNode = (node, currentDepth) => {
     if (!node) return '';
-    let html = `<div class="node">${node.name} (${node.gender}, ${node.breed})</div>`;
+    let html = `<div class="node" data-horse-id="${node.id}">${node.name} (${node.gender}, ${node.breed})</div>`;
     if (currentDepth > 0 && (node.sire || node.dam)) {
       html += '<div class="branch">';
       html += renderNode(node.sire, currentDepth - 1);
@@ -83,8 +84,10 @@ exports.generatePedigreeHtml = async (knex, horseId, depth) => {
       <head>
         <style>
           .tree { font-family: Arial; text-align: center; }
-          .node { border: 1px solid #333; padding: 10px; margin: 5px; display: inline-block; }
-          .branch { display: flex; justify-content: center; }
+          .node { border: 2px solid #34495e; padding: 10px; margin: 10px; display: inline-block; border-radius: 5px; cursor: pointer; }
+          .node:hover { background-color: #1abc9c; color: white; }
+          .branch { display: flex; justify-content: center; gap: 20px; position: relative; }
+          .branch::before { content: ''; position: absolute; top: -20px; left: 50%; width: 2px; height: 20px; background-color: #34495e; }
         </style>
       </head>
       <body>

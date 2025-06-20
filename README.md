@@ -41,6 +41,18 @@ REST API and frontend for managing a horse pedigree database.
 
 7. Access the frontend at `http://localhost:3000`.
 
+## Testing
+1. Run tests with coverage:
+   ```bash
+   npm test
+   ```
+
+2. Tests are located in the `__tests__` folder:
+   - Backend tests: `__tests__/backend/*.test.js`
+   - Frontend tests: `__tests__/frontend/*.test.js`
+
+3. A temporary test database is created and destroyed automatically during testing.
+
 ## API Endpoints
 - **Countries**: `/api/countries`
 - **Breeders**: `/api/breeders`
@@ -55,3 +67,9 @@ REST API and frontend for managing a horse pedigree database.
 - Located in the `public/` folder.
 - Features a dashboard with horse listings, forms for adding/editing entities, pedigree visualization, and offspring filtering.
 - Accessible at `http://localhost:3000`.
+
+## Notes
+- Ensure `knexfile.js` is present in the project root for migrations and seeds.
+- PostgreSQL runs in a Docker container. Verify connection details in `knexfile.js` and `docker-compose.yml`.
+- Tests require a running PostgreSQL instance.
+
