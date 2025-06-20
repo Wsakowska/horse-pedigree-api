@@ -73,3 +73,11 @@ REST API and frontend for managing a horse pedigree database.
 - PostgreSQL runs in a Docker container. Verify connection details in `knexfile.js` and `docker-compose.yml`.
 - Tests require a running PostgreSQL instance.
 
+
+# Plan B - reset całej bazy
+docker-compose down -v
+docker-compose up -d
+sleep 10
+npm run migrate
+npm run seed
+npm start

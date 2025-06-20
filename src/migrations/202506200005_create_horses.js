@@ -10,10 +10,8 @@ exports.up = function (knex) {
     table.integer('color_id').references('id').inTable('colors');
     table.integer('breeder_id').references('id').inTable('breeders');
     
-    // Constraints
-    table.check('sire_id != dam_id');
-    table.check('sire_id IS NULL OR id != sire_id');
-    table.check('dam_id IS NULL OR id != dam_id');
+    // Poprawne check constraints
+    table.check('sire_id != dam_id', [], 'horses_different_parents_check');
   });
 };
 
