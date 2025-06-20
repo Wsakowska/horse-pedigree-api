@@ -3,41 +3,25 @@
  */
 const fs = require('fs');
 const path = require('path');
+const { JSDOM } = require('jsdom');
 
 // Load HTML
 const html = fs.readFileSync(path.resolve(__dirname, '../../public/index.html'), 'utf8');
 
 describe('Frontend Scripts', () => {
-  let window, document;
+  let dom, window, document;
 
   beforeEach(() => {
     // Setup JSDOM environment
+    dom = new JSDOM(html, { runScripts: 'dangerously' });
+    window = dom.window;
     document = window.document;
     global.document = document;
     global.window = window;
-    
-    // Mock functions
-    global.alert = jest.fn();
-    global.confirm = jest.fn(() => true);
-    global.fetch = jest.fn(() =>
-      Promise.resolve({
-        ok: true,
-        json: () => Promise.resolve([]),
-        text: () => Promise.resolve('<div class="node">Test</div>')
-      })
-    );
-
-    // Set innerHTML
-    document.documentElement.innerHTML = html;
-
-    // Mock console methods
-    global.console.error = jest.fn();
-    global.console.log = jest.fn();
   });
 
   afterEach(() => {
-    jest.clearAllMocks();
-    jest.resetModules();
+    dom.window.close();
   });
 
   describe('DOM Manipulation', () => {

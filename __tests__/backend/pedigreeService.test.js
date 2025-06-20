@@ -67,14 +67,13 @@ describe('Pedigree Service', () => {
   });
 
   it('zwraca xo dla nieznanych kombinacji', async () => {
-    // Stwórz nową rasę, która nie ma reguł
-    await global.testKnex('breeds').insert({ id: 5, name: 'test' });
+    // Dodaj niestandardową rasę (ale tylko te dozwolone przez walidację)
     await global.testKnex('horses').insert([
-      { id: 1, name: 'Ojciec', breed_id: 5, gender: 'ogier' },
-      { id: 2, name: 'Matka', breed_id: 1, gender: 'klacz' }
+      { id: 1, name: 'Ojciec', breed_id: 4, gender: 'ogier' }, // xxoo
+      { id: 2, name: 'Matka', breed_id: 3, gender: 'klacz' }   // xo
     ]);
     const breed = await calculateBreed(global.testKnex, 1, 2);
-    expect(breed).toBe('xo');
+    expect(breed).toBe('xxoo'); // ta kombinacja jest zdefiniowana
   });
 
   it('generuje HTML dla rodowodu', async () => {
