@@ -1,14 +1,14 @@
 const knex = require('../config/db');
 const Joi = require('joi');
-const { calculateBreed, getPedigree, getOffspring, generatePedigreeHtml } = require('../services/pedigreeService');
+const { calculateBreed, getPedigree, getOffspring, generatePedigreeHtml, checkCyclicRelations } = require('../services/pedigreeService');
 
 const horseSchema = Joi.object({
   name: Joi.string().max(100).required(),
   breed_id: Joi.number().integer().required(),
-  birth_date: Joi.date().optional(),
+  birth_date: Joi.date().optional().allow(null),
   gender: Joi.string().valid('klacz', 'ogier', 'wałach').required(),
-  sire_id: Joi.number().integer().optional(),
-  dam_id: Joi.number().integer().optional(),
+  sire_id: Joi.number().integer().optional().allow(null),
+  dam_id: Joi.number().integer().optional().allow(null),
   color_id: Joi.number().integer().required(),
   breeder_id: Joi.number().integer().required(),
 });
@@ -33,8 +33,38 @@ const handleDatabaseError = (error, res) => {
 
 exports.getAllHorses = async (req, res) => {
   try {
-    const horses = await knex('horses').select('*');
+    const { limit = 100, offset = 0, gender, breed_id } = req.query;
+    
+    let query = knex('horses');
+    
+    // Dodaj filtry jeśli są podane
+    if (gender && ['klacz', 'ogier', 'wałach'].includes(gender)) {
+      query = query.where({ gender });
+    }
+    
+    if (breed_id && !isNaN(breed_id)) {
+      query = query.where({ breed_id: parseInt(breed_id) });
+    }
+    
+    const horses = await query
+      .limit(parseInt(limit))
+      .offset(parseInt(offset))
+      .orderBy('name')
+      .select('*');
+      
     res.json(horses);
+  } catch (error) {
+    handleDatabaseError(error, res);
+  }
+};
+
+exports.getHorseById = async (req, res) => {
+  try {
+    const horse = await knex('horses').where({ id: req.params.id }).first();
+    if (!horse) {
+      return res.status(404).json({ error: 'Koń nie znaleziony' });
+    }
+    res.json(horse);
   } catch (error) {
     handleDatabaseError(error, res);
   }
@@ -44,7 +74,7 @@ exports.createHorse = async (req, res) => {
   const { error } = horseSchema.validate(req.body);
   if (error) return res.status(400).json({ error: error.details[0].message });
 
-  const { sire_id, dam_id, breed_id } = req.body;
+  const { sire_id, dam_id, breed_id, name } = req.body;
 
   try {
     // Sprawdź czy rodzice istnieją i mają odpowiednią płeć
@@ -73,14 +103,41 @@ exports.createHorse = async (req, res) => {
       return res.status(400).json({ error: 'Ojciec i matka nie mogą być tym samym koniem' });
     }
 
+    // Sprawdź czy koń o takiej nazwie już istnieje
+    const existingHorse = await knex('horses').where({ name }).first();
+    if (existingHorse) {
+      return res.status(409).json({ error: 'Koń o takiej nazwie już istnieje' });
+    }
+
+    // Sprawdź czy rodzice są z odpowiednich ras (dodatkowa walidacja)
+    if (sire_id && dam_id) {
+      const sireBreed = await knex('horses')
+        .join('breeds', 'horses.breed_id', 'breeds.id')
+        .where('horses.id', sire_id)
+        .select('breeds.name')
+        .first();
+      
+      const damBreed = await knex('horses')
+        .join('breeds', 'horses.breed_id', 'breeds.id')
+        .where('horses.id', dam_id)
+        .select('breeds.name')
+        .first();
+
+      if (!sireBreed || !damBreed) {
+        return res.status(400).json({ error: 'Nie można ustalić rasy rodziców' });
+      }
+    }
+
     // Oblicz rasę jeśli są rodzice
     let finalBreedId = breed_id;
     if (sire_id && dam_id) {
       const calculatedBreed = await calculateBreed(knex, sire_id, dam_id);
-      const breed = await knex('breeds').where({ name: calculatedBreed }).first();
-      if (breed) {
-        finalBreedId = breed.id;
-        console.log(`Automatycznie obliczona rasa: ${calculatedBreed} (ID: ${breed.id})`);
+      if (calculatedBreed) {
+        const breed = await knex('breeds').where({ name: calculatedBreed }).first();
+        if (breed) {
+          finalBreedId = breed.id;
+          console.log(`Automatycznie obliczona rasa: ${calculatedBreed} (ID: ${breed.id})`);
+        }
       }
     }
 
@@ -98,7 +155,7 @@ exports.updateHorse = async (req, res) => {
   const { error } = horseSchema.validate(req.body);
   if (error) return res.status(400).json({ error: error.details[0].message });
 
-  const { sire_id, dam_id } = req.body;
+  const { sire_id, dam_id, name } = req.body;
   const horseId = req.params.id;
 
   try {
@@ -106,6 +163,17 @@ exports.updateHorse = async (req, res) => {
     const existingHorse = await knex('horses').where({ id: horseId }).first();
     if (!existingHorse) {
       return res.status(404).json({ error: 'Koń nie znaleziony' });
+    }
+
+    // Sprawdź czy inna nazwa już istnieje (jeśli zmieniana)
+    if (name !== existingHorse.name) {
+      const nameExists = await knex('horses')
+        .where({ name })
+        .whereNot({ id: horseId })
+        .first();
+      if (nameExists) {
+        return res.status(409).json({ error: 'Koń o takiej nazwie już istnieje' });
+      }
     }
 
     // Sprawdź czy rodzice istnieją i mają odpowiednią płeć
@@ -140,9 +208,30 @@ exports.updateHorse = async (req, res) => {
       return res.status(400).json({ error: 'Ojciec i matka nie mogą być tym samym koniem' });
     }
 
+    // NOWE: Sprawdź cykliczne relacje
+    const hasCycle = await checkCyclicRelations(knex, horseId, sire_id, dam_id);
+    if (hasCycle) {
+      return res.status(400).json({ 
+        error: 'Nie można utworzyć tej relacji - koń byłby swoim własnym przodkiem (cykliczna relacja rodzinna)' 
+      });
+    }
+
+    // Oblicz nową rasę jeśli są rodzice
+    let updateData = { ...req.body };
+    if (sire_id && dam_id) {
+      const calculatedBreed = await calculateBreed(knex, sire_id, dam_id);
+      if (calculatedBreed) {
+        const breed = await knex('breeds').where({ name: calculatedBreed }).first();
+        if (breed) {
+          updateData.breed_id = breed.id;
+          console.log(`Automatycznie obliczona nowa rasa: ${calculatedBreed} (ID: ${breed.id})`);
+        }
+      }
+    }
+
     const [horse] = await knex('horses')
       .where({ id: horseId })
-      .update(req.body)
+      .update(updateData)
       .returning('*');
     
     if (!horse) return res.status(404).json({ error: 'Koń nie znaleziony' });
@@ -154,7 +243,22 @@ exports.updateHorse = async (req, res) => {
 
 exports.deleteHorse = async (req, res) => {
   try {
-    const deleted = await knex('horses').where({ id: req.params.id }).del();
+    const horseId = req.params.id;
+    
+    // Sprawdź czy koń ma potomstwo
+    const offspring = await knex('horses')
+      .where({ sire_id: horseId })
+      .orWhere({ dam_id: horseId })
+      .select('id', 'name')
+      .limit(1);
+    
+    if (offspring.length > 0) {
+      return res.status(400).json({ 
+        error: 'Nie można usunąć konia który ma potomstwo. Najpierw usuń lub zmień rodziców potomstwa.' 
+      });
+    }
+    
+    const deleted = await knex('horses').where({ id: horseId }).del();
     if (!deleted) return res.status(404).json({ error: 'Koń nie znaleziony' });
     res.status(204).send();
   } catch (error) {
@@ -176,7 +280,7 @@ exports.getPedigree = async (req, res) => {
   
   try {
     const pedigree = await getPedigree(knex, parseInt(id), depthNum);
-    if (!pedigree) return res.status(404).json({ error: 'Koń nie znaleziony' });
+    if (!pedigree) return res.status(404).json({ error: 'Koń nie znaleziony lub wystąpił cykl w rodowodzie' });
     res.json(pedigree);
   } catch (error) {
     handleDatabaseError(error, res);
@@ -185,7 +289,7 @@ exports.getPedigree = async (req, res) => {
 
 exports.getOffspring = async (req, res) => {
   const { id } = req.params;
-  const { gender, breeder_id } = req.query;
+  const { gender, breeder_id, limit = 50, offset = 0 } = req.query;
   
   if (!id || isNaN(id)) {
     return res.status(400).json({ error: 'Nieprawidłowe ID konia' });
@@ -199,10 +303,49 @@ exports.getOffspring = async (req, res) => {
   if (breeder_id && isNaN(breeder_id)) {
     return res.status(400).json({ error: 'Nieprawidłowe ID hodowcy' });
   }
+
+  if (limit && (isNaN(limit) || limit > 200)) {
+    return res.status(400).json({ error: 'Limit musi być liczbą nie większą niż 200' });
+  }
+
+  if (offset && isNaN(offset)) {
+    return res.status(400).json({ error: 'Offset musi być liczbą' });
+  }
   
   try {
-    const offspring = await getOffspring(knex, parseInt(id), { gender, breeder_id });
-    res.json(offspring);
+    // Sprawdź czy koń istnieje
+    const horse = await knex('horses').where({ id: parseInt(id) }).first();
+    if (!horse) {
+      return res.status(404).json({ error: 'Koń nie znaleziony' });
+    }
+
+    const offspring = await getOffspring(knex, parseInt(id), { 
+      gender, 
+      breeder_id, 
+      limit: parseInt(limit), 
+      offset: parseInt(offset) 
+    });
+    
+    // Dodaj informacje o łącznej liczbie potomstwa
+    const totalQuery = knex('horses')
+      .where(function() {
+        this.where({ sire_id: parseInt(id) }).orWhere({ dam_id: parseInt(id) });
+      });
+    
+    if (gender) totalQuery.andWhere({ gender });
+    if (breeder_id) totalQuery.andWhere({ breeder_id: parseInt(breeder_id) });
+    
+    const totalCount = await totalQuery.count('* as count').first();
+    
+    res.json({
+      offspring,
+      pagination: {
+        total: parseInt(totalCount.count),
+        limit: parseInt(limit),
+        offset: parseInt(offset),
+        hasMore: parseInt(offset) + offspring.length < parseInt(totalCount.count)
+      }
+    });
   } catch (error) {
     handleDatabaseError(error, res);
   }
@@ -216,14 +359,101 @@ exports.getPedigreeHtml = async (req, res) => {
   }
   
   const depthNum = parseInt(depth);
-  if (depthNum < 0 || depthNum > 10) {
-    return res.status(400).json({ error: 'Głębokość musi być między 0 a 10' });
+  if (depthNum < 0 || depthNum > 5) {
+    return res.status(400).json({ error: 'Głębokość musi być między 0 a 5 dla wizualizacji HTML' });
   }
   
   try {
+    // Sprawdź czy koń istnieje
+    const horse = await knex('horses').where({ id: parseInt(id) }).first();
+    if (!horse) {
+      return res.status(404).json({ error: 'Koń nie znaleziony' });
+    }
+
     const html = await generatePedigreeHtml(knex, parseInt(id), depthNum);
-    res.set('Content-Type', 'text/html');
+    res.set('Content-Type', 'text/html; charset=utf-8');
     res.send(html);
+  } catch (error) {
+    console.error('Błąd podczas generowania HTML:', error);
+    res.status(500).send(`
+      <!DOCTYPE html>
+      <html>
+        <head><title>Błąd</title></head>
+        <body>
+          <h2>Błąd podczas generowania rodowodu</h2>
+          <p>Przepraszamy, wystąpił błąd serwera.</p>
+        </body>
+      </html>
+    `);
+  }
+};
+
+// NOWY endpoint: Sprawdzanie możliwości krzyżowania
+exports.checkBreeding = async (req, res) => {
+  const { sire_id, dam_id } = req.query;
+  
+  if (!sire_id || !dam_id || isNaN(sire_id) || isNaN(dam_id)) {
+    return res.status(400).json({ error: 'Wymagane są poprawne ID ojca i matki' });
+  }
+
+  if (sire_id === dam_id) {
+    return res.status(400).json({ error: 'Ojciec i matka nie mogą być tym samym koniem' });
+  }
+
+  try {
+    // Sprawdź czy konie istnieją i mają odpowiednie płcie
+    const sire = await knex('horses').where({ id: sire_id }).first();
+    const dam = await knex('horses').where({ id: dam_id }).first();
+
+    if (!sire || !dam) {
+      return res.status(404).json({ error: 'Jeden lub oba konie nie zostali znalezieni' });
+    }
+
+    if (sire.gender !== 'ogier') {
+      return res.status(400).json({ error: 'Ojciec musi być ogierem' });
+    }
+
+    if (dam.gender !== 'klacz') {
+      return res.status(400).json({ error: 'Matka musi być klaczą' });
+    }
+
+    // Oblicz potencjalną rasę potomstwa
+    const predictedBreed = await calculateBreed(knex, sire_id, dam_id);
+    
+    // Sprawdź stopień pokrewieństwa (czy mają wspólnych przodków w 3 generacjach)
+    const siresPedigree = await getPedigree(knex, parseInt(sire_id), 3);
+    const damsPedigree = await getPedigree(knex, parseInt(dam_id), 3);
+    
+    const getAncestorIds = (horse, depth, ids = new Set()) => {
+      if (!horse || depth <= 0) return ids;
+      if (horse.sire) {
+        ids.add(horse.sire.id);
+        getAncestorIds(horse.sire, depth - 1, ids);
+      }
+      if (horse.dam) {
+        ids.add(horse.dam.id);
+        getAncestorIds(horse.dam, depth - 1, ids);
+      }
+      return ids;
+    };
+
+    const sireAncestors = getAncestorIds(siresPedigree, 3);
+    const damAncestors = getAncestorIds(damsPedigree, 3);
+    
+    // Znajdź wspólnych przodków
+    const commonAncestors = [...sireAncestors].filter(id => damAncestors.has(id));
+
+    res.json({
+      breeding_possible: true,
+      predicted_breed: predictedBreed,
+      inbreeding_detected: commonAncestors.length > 0,
+      common_ancestors: commonAncestors,
+      recommendation: commonAncestors.length > 0 
+        ? 'Uwaga: Wykryto pokrewieństwo. Rozważ inne krzyżowanie.' 
+        : 'Krzyżowanie zalecane - brak bliskiego pokrewieństwa.',
+      sire: { id: sire.id, name: sire.name, breed: sire.breed_id },
+      dam: { id: dam.id, name: dam.name, breed: dam.breed_id }
+    });
   } catch (error) {
     handleDatabaseError(error, res);
   }
