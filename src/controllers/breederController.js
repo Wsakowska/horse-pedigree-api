@@ -19,6 +19,12 @@ exports.createBreeder = async (req, res) => {
   const { error } = breederSchema.validate(req.body);
   if (error) return res.status(400).json({ error: error.details[0].message });
 
+  // Sprawdź czy kraj istnieje
+  const countryExists = await knex('countries').where('code', req.body.country_code).first();
+  if (!countryExists) {
+    return res.status(400).json({ error: 'Country code must be a valid country code' });
+  }
+
   try {
     const [breeder] = await knex('breeders').insert(req.body).returning('*');
     res.status(201).json(breeder);
@@ -30,6 +36,12 @@ exports.createBreeder = async (req, res) => {
 exports.updateBreeder = async (req, res) => {
   const { error } = breederSchema.validate(req.body);
   if (error) return res.status(400).json({ error: error.details[0].message });
+
+  // Sprawdź czy kraj istnieje
+  const countryExists = await knex('countries').where('code', req.body.country_code).first();
+  if (!countryExists) {
+    return res.status(400).json({ error: 'Country code must be a valid country code' });
+  }
 
   try {
     const [breeder] = await knex('breeders')

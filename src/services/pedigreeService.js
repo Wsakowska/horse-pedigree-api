@@ -1,13 +1,27 @@
 const knex = require('../config/db');
 
 const breedRules = {
+  // Podstawowe reguły z polecenia
   'oo+oo': 'oo',
   'oo+xo': 'xo',
   'oo+xx': 'xxoo',
   'xx+xx': 'xx',
   'xx+xo': 'xo',
   'xx+xxoo': 'xxoo',
-  'oo + xxoo': 'xxoo',
+  'oo+xxoo': 'xxoo',
+  
+  // Symetryczne kombinacje (ojciec + matka = matka + ojciec)
+  'xo+oo': 'xo',
+  'xx+oo': 'xxoo',
+  'xo+xx': 'xo',
+  'xxoo+xx': 'xxoo',
+  'xxoo+oo': 'xxoo',
+  
+  // Dodatkowe kombinacje
+  'xo+xo': 'xo',
+  'xo+xxoo': 'xxoo',
+  'xxoo+xo': 'xxoo',
+  'xxoo+xxoo': 'xxoo',
 };
 
 exports.calculateBreed = async (knex, sireId, damId) => {

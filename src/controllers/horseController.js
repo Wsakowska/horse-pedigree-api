@@ -26,18 +26,42 @@ exports.createHorse = async (req, res) => {
   const { error } = horseSchema.validate(req.body);
   if (error) return res.status(400).json({ error: error.details[0].message });
 
-  const { sire_id, dam_id, breed_id } = req.body;
+  const { sire_id, dam_id, breed_id, breeder_id, color_id } = req.body;
+
+  // Sprawdź czy hodowca istnieje
+  const breederExists = await knex('breeders').where({ id: breeder_id }).first();
+  if (!breederExists) {
+    return res.status(400).json({ error: 'Breeder must be a valid breeder ID' });
+  }
+
+  // Sprawdź czy maść istnieje
+  const colorExists = await knex('colors').where({ id: color_id }).first();
+  if (!colorExists) {
+    return res.status(400).json({ error: 'Color must be a valid color ID' });
+  }
+
+  // Sprawdź czy rasa istnieje
+  const breedExists = await knex('breeds').where({ id: breed_id }).first();
+  if (!breedExists) {
+    return res.status(400).json({ error: 'Breed must be a valid breed ID' });
+  }
 
   // Validate parents' gender
   if (sire_id) {
     const sire = await knex('horses').where({ id: sire_id }).first();
-    if (sire && sire.gender === 'klacz') {
+    if (!sire) {
+      return res.status(400).json({ error: 'Sire must be a valid horse ID' });
+    }
+    if (sire.gender !== 'ogier') {
       return res.status(400).json({ error: 'Sire must be an ogier' });
     }
   }
   if (dam_id) {
     const dam = await knex('horses').where({ id: dam_id }).first();
-    if (dam && dam.gender !== 'klacz') {
+    if (!dam) {
+      return res.status(400).json({ error: 'Dam must be a valid horse ID' });
+    }
+    if (dam.gender !== 'klacz') {
       return res.status(400).json({ error: 'Dam must be a klacz' });
     }
   }
@@ -63,6 +87,46 @@ exports.createHorse = async (req, res) => {
 exports.updateHorse = async (req, res) => {
   const { error } = horseSchema.validate(req.body);
   if (error) return res.status(400).json({ error: error.details[0].message });
+
+  const { sire_id, dam_id, breeder_id, color_id, breed_id } = req.body;
+
+  // Sprawdź czy hodowca istnieje
+  const breederExists = await knex('breeders').where({ id: breeder_id }).first();
+  if (!breederExists) {
+    return res.status(400).json({ error: 'Breeder must be a valid breeder ID' });
+  }
+
+  // Sprawdź czy maść istnieje
+  const colorExists = await knex('colors').where({ id: color_id }).first();
+  if (!colorExists) {
+    return res.status(400).json({ error: 'Color must be a valid color ID' });
+  }
+
+  // Sprawdź czy rasa istnieje
+  const breedExists = await knex('breeds').where({ id: breed_id }).first();
+  if (!breedExists) {
+    return res.status(400).json({ error: 'Breed must be a valid breed ID' });
+  }
+
+  // Validate parents' gender
+  if (sire_id) {
+    const sire = await knex('horses').where({ id: sire_id }).first();
+    if (!sire) {
+      return res.status(400).json({ error: 'Sire must be a valid horse ID' });
+    }
+    if (sire.gender !== 'ogier') {
+      return res.status(400).json({ error: 'Sire must be an ogier' });
+    }
+  }
+  if (dam_id) {
+    const dam = await knex('horses').where({ id: dam_id }).first();
+    if (!dam) {
+      return res.status(400).json({ error: 'Dam must be a valid horse ID' });
+    }
+    if (dam.gender !== 'klacz') {
+      return res.status(400).json({ error: 'Dam must be a klacz' });
+    }
+  }
 
   try {
     const [horse] = await knex('horses')
