@@ -37,7 +37,7 @@ exports.getAllHorses = async (req, res) => {
     
     let query = knex('horses');
     
-    // Dodaj filtry jeśli są podane
+    // POPRAWKA: Dodaj filtry PRZED select
     if (gender && ['klacz', 'ogier', 'wałach'].includes(gender)) {
       query = query.where({ gender });
     }

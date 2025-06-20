@@ -951,14 +951,14 @@ const breedRules = {
   'xx+xo': 'xo',
   'xx+xxoo': 'xxoo',
   'oo+xxoo': 'xxoo',
-  
+&nbsp;
   // Symetryczne kombinacje
   'xo+oo': 'xo',
   'xx+oo': 'xxoo',
   'xo+xx': 'xo',
   'xxoo+xx': 'xxoo',
   'xxoo+oo': 'xxoo',
-  
+&nbsp;
   // Dodatkowe kombinacje (logiczne uzupełnienia)
   'xo+xo': 'xo',
   'xxoo+xo': 'xxoo',
@@ -969,21 +969,21 @@ const breedRules = {
 // Funkcja sprawdzająca cykliczne relacje rodzinne
 exports.checkCyclicRelations = async (knex, horseId, sireId, damId) =&gt; {
   if (!sireId &amp;&amp; !damId) return false;
-  
+&nbsp;
   const checkAncestor = async (currentId, targetId, visited = new Set()) =&gt; {
     if (!currentId || currentId === targetId) return currentId === targetId;
     <span class="missing-if-branch" title="if path not taken" >I</span>if (visited.has(currentId)) <span class="cstat-no" title="statement not covered" >return false; </span>// Zapobieganie nieskończonym pętlom
-    
+&nbsp;
     visited.add(currentId);
-    
+&nbsp;
     try {
       const horse = await knex('horses')
         .where({ id: currentId })
         .select('sire_id', 'dam_id')
         .first();
-      
+&nbsp;
       <span class="missing-if-branch" title="if path not taken" >I</span>if (!horse) <span class="cstat-no" title="statement not covered" >return false;</span>
-      
+&nbsp;
       // Sprawdź czy target jest przodkiem current
       if (horse.sire_id &amp;&amp; await checkAncestor(horse.sire_id, targetId, new Set(visited))) {
         return true;
@@ -991,26 +991,26 @@ exports.checkCyclicRelations = async (knex, horseId, sireId, damId) =&gt; {
       if (horse.dam_id &amp;&amp; await checkAncestor(horse.dam_id, targetId, new Set(visited))) {
         return true;
       }
-      
+&nbsp;
       return false;
     } catch (error) {
 <span class="cstat-no" title="statement not covered" >      console.error('Błąd podczas sprawdzania przodków:', error);</span>
 <span class="cstat-no" title="statement not covered" >      return false;</span>
     }
   };
-  
+&nbsp;
   // Sprawdź czy koń nie jest swoim własnym przodkiem przez ojca
   if (sireId) {
     if (sireId == horseId) return true; // Bezpośredni przypadek
     if (await checkAncestor(sireId, parseInt(horseId))) return true;
   }
-  
+&nbsp;
   // Sprawdź czy koń nie jest swoim własnym przodkiem przez matkę
   <span class="missing-if-branch" title="else path not taken" >E</span>if (damId) {
     <span class="missing-if-branch" title="if path not taken" >I</span>if (damId == horseId) <span class="cstat-no" title="statement not covered" >return true; </span>// Bezpośredni przypadek
     if (await checkAncestor(damId, parseInt(horseId))) return true;
   }
-  
+&nbsp;
   return false;
 };
 &nbsp;
@@ -1038,12 +1038,12 @@ exports.calculateBreed = async (knex, sireId, damId) =&gt; {
 &nbsp;
     const key = `${sire.name}+${dam.name}`;
     const result = breedRules[key];
-    
+&nbsp;
     <span class="missing-if-branch" title="if path not taken" >I</span>if (!result) {
 <span class="cstat-no" title="statement not covered" >      console.warn(`Brak reguły dla kombinacji: ${key}, używam domyślnej rasy 'xo'`);</span>
 <span class="cstat-no" title="statement not covered" >      return 'xo';</span>
     }
-    
+&nbsp;
     console.log(`Obliczanie rasy: ${sire.name} + ${dam.name} = ${result}`);
     return result;
   } catch (error) {
@@ -1104,7 +1104,7 @@ exports.getOffspring = <span class="fstat-no" title="function not covered" >as</
 &nbsp;
 <span class="cstat-no" title="statement not covered" >  try {</span>
     let query = <span class="cstat-no" title="statement not covered" >knex('horses')</span>
-      .where(<span class="fstat-no" title="function not covered" >fu</span>nction() {
+      .where(<span class="fstat-no" title="function not covered" >fu</span>nction () {
 <span class="cstat-no" title="statement not covered" >        this.where({ sire_id: horseId }).orWhere({ dam_id: horseId });</span>
       });
 &nbsp;
@@ -1112,7 +1112,7 @@ exports.getOffspring = <span class="fstat-no" title="function not covered" >as</
 <span class="cstat-no" title="statement not covered" >    if (gender &amp;&amp; ['klacz', 'ogier', 'wałach'].includes(gender)) {</span>
 <span class="cstat-no" title="statement not covered" >      query = query.andWhere({ gender });</span>
     }
-    
+&nbsp;
 <span class="cstat-no" title="statement not covered" >    if (breeder_id &amp;&amp; !isNaN(breeder_id)) {</span>
 <span class="cstat-no" title="statement not covered" >      query = query.andWhere({ breeder_id: parseInt(breeder_id) });</span>
     }
@@ -1121,14 +1121,14 @@ exports.getOffspring = <span class="fstat-no" title="function not covered" >as</
 <span class="cstat-no" title="statement not covered" >    query = query.limit(limit).offset(offset);</span>
 &nbsp;
     const result = <span class="cstat-no" title="statement not covered" >await query.select(</span>
-      'id', 'name', 'gender', 'breed_id', 'birth_date', 
+      'id', 'name', 'gender', 'breed_id', 'birth_date',
       'color_id', 'breeder_id', 'sire_id', 'dam_id'
     ).orderBy('birth_date', 'desc');
-    
+&nbsp;
 <span class="cstat-no" title="statement not covered" >    console.log(`Znaleziono ${result.length} potomków dla konia ${horseId}`);</span>
 <span class="cstat-no" title="statement not covered" >    if (gender) <span class="cstat-no" title="statement not covered" >console.log(`Filtr płci: ${gender}`);</span></span>
 <span class="cstat-no" title="statement not covered" >    if (breeder_id) <span class="cstat-no" title="statement not covered" >console.log(`Filtr hodowcy: ${breeder_id}`);</span></span>
-    
+&nbsp;
 <span class="cstat-no" title="statement not covered" >    return result;</span>
   } catch (error) {
 <span class="cstat-no" title="statement not covered" >    console.error('Błąd podczas pobierania potomstwa:', error);</span>
@@ -1148,15 +1148,15 @@ exports.generatePedigreeHtml = async (knex, horseId, depth) =&gt; {
       <span class="missing-if-branch" title="if path not taken" >I</span>if (!node) {
 <span class="cstat-no" title="statement not covered" >        return '&lt;div class="node empty"&gt;Brak danych&lt;/div&gt;';</span>
       }
-      
+&nbsp;
       const birthYear = node.birth_date ? new Date(node.birth_date).getFullYear() : '';
       const birthInfo = birthYear ? ` (ur. ${birthYear})` : '';
-      
+&nbsp;
       let html = `&lt;div class="node" data-horse-id="${node.id}"&gt;
         &lt;div class="horse-name"&gt;${escapeHtml(node.name)}&lt;/div&gt;
         &lt;div class="horse-details"&gt;${node.gender}, ${node.breed || <span class="branch-1 cbranch-no" title="branch not covered" >'brak rasy'}</span>${birthInfo}&lt;/div&gt;
       &lt;/div&gt;`;
-      
+&nbsp;
       if (currentDepth &gt; 0 &amp;&amp; (node.sire || <span class="branch-2 cbranch-no" title="branch not covered" >node.dam)</span>) {
         html += '&lt;div class="branch"&gt;';
         html += '&lt;div class="parent sire"&gt;';
@@ -1359,7 +1359,7 @@ function generatePedigreeHtml(horse, depth, renderNode) {
       &lt;/head&gt;
       &lt;body&gt;
         &lt;div class="container"&gt;
-          &lt;h1&gt;🐎 Rodowód konia ${escapeHtml(horse.name)}&lt;/h1&gt;
+          &lt;h1&gt; Rodowód konia ${escapeHtml(horse.name)}&lt;/h1&gt;
           &lt;div class="info"&gt;Głębokość: ${depth} ${depth === 1 ? 'generacja' : 'generacje'}&lt;/div&gt;
           &lt;div class="tree"&gt;
             ${renderNode(horse, depth)}
@@ -1373,7 +1373,7 @@ function generatePedigreeHtml(horse, depth, renderNode) {
             node.addEventListener('click', () =&gt; {
               const horseId = node.dataset.horseId;
               const horseName = node.querySelector('.horse-name').textContent;
-              alert('🐴 ' + horseName + '\\nID: ' + horseId + '\\n\\nKliknij OK aby kontynuować');
+              alert(horseName + '\\nID: ' + horseId + '\\n\\nKliknij OK aby kontynuować');
             });
           });
         &lt;/script&gt;
@@ -1387,7 +1387,7 @@ function generatePedigreeHtml(horse, depth, renderNode) {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-06-20T20:26:38.397Z
+                at 2025-06-20T21:10:42.701Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

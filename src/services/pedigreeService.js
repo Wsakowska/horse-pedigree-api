@@ -8,14 +8,14 @@ const breedRules = {
   'xx+xo': 'xo',
   'xx+xxoo': 'xxoo',
   'oo+xxoo': 'xxoo',
-  
+
   // Symetryczne kombinacje
   'xo+oo': 'xo',
   'xx+oo': 'xxoo',
   'xo+xx': 'xo',
   'xxoo+xx': 'xxoo',
   'xxoo+oo': 'xxoo',
-  
+
   // Dodatkowe kombinacje (logiczne uzupełnienia)
   'xo+xo': 'xo',
   'xxoo+xo': 'xxoo',
@@ -26,21 +26,21 @@ const breedRules = {
 // Funkcja sprawdzająca cykliczne relacje rodzinne
 exports.checkCyclicRelations = async (knex, horseId, sireId, damId) => {
   if (!sireId && !damId) return false;
-  
+
   const checkAncestor = async (currentId, targetId, visited = new Set()) => {
     if (!currentId || currentId === targetId) return currentId === targetId;
     if (visited.has(currentId)) return false; // Zapobieganie nieskończonym pętlom
-    
+
     visited.add(currentId);
-    
+
     try {
       const horse = await knex('horses')
         .where({ id: currentId })
         .select('sire_id', 'dam_id')
         .first();
-      
+
       if (!horse) return false;
-      
+
       // Sprawdź czy target jest przodkiem current
       if (horse.sire_id && await checkAncestor(horse.sire_id, targetId, new Set(visited))) {
         return true;
@@ -48,26 +48,26 @@ exports.checkCyclicRelations = async (knex, horseId, sireId, damId) => {
       if (horse.dam_id && await checkAncestor(horse.dam_id, targetId, new Set(visited))) {
         return true;
       }
-      
+
       return false;
     } catch (error) {
       console.error('Błąd podczas sprawdzania przodków:', error);
       return false;
     }
   };
-  
+
   // Sprawdź czy koń nie jest swoim własnym przodkiem przez ojca
   if (sireId) {
     if (sireId == horseId) return true; // Bezpośredni przypadek
     if (await checkAncestor(sireId, parseInt(horseId))) return true;
   }
-  
+
   // Sprawdź czy koń nie jest swoim własnym przodkiem przez matkę
   if (damId) {
     if (damId == horseId) return true; // Bezpośredni przypadek
     if (await checkAncestor(damId, parseInt(horseId))) return true;
   }
-  
+
   return false;
 };
 
@@ -95,12 +95,12 @@ exports.calculateBreed = async (knex, sireId, damId) => {
 
     const key = `${sire.name}+${dam.name}`;
     const result = breedRules[key];
-    
+
     if (!result) {
       console.warn(`Brak reguły dla kombinacji: ${key}, używam domyślnej rasy 'xo'`);
       return 'xo';
     }
-    
+
     console.log(`Obliczanie rasy: ${sire.name} + ${dam.name} = ${result}`);
     return result;
   } catch (error) {
@@ -161,7 +161,7 @@ exports.getOffspring = async (knex, horseId, filters = {}) => {
 
   try {
     let query = knex('horses')
-      .where(function() {
+      .where(function () {
         this.where({ sire_id: horseId }).orWhere({ dam_id: horseId });
       });
 
@@ -169,7 +169,7 @@ exports.getOffspring = async (knex, horseId, filters = {}) => {
     if (gender && ['klacz', 'ogier', 'wałach'].includes(gender)) {
       query = query.andWhere({ gender });
     }
-    
+
     if (breeder_id && !isNaN(breeder_id)) {
       query = query.andWhere({ breeder_id: parseInt(breeder_id) });
     }
@@ -178,14 +178,14 @@ exports.getOffspring = async (knex, horseId, filters = {}) => {
     query = query.limit(limit).offset(offset);
 
     const result = await query.select(
-      'id', 'name', 'gender', 'breed_id', 'birth_date', 
+      'id', 'name', 'gender', 'breed_id', 'birth_date',
       'color_id', 'breeder_id', 'sire_id', 'dam_id'
     ).orderBy('birth_date', 'desc');
-    
+
     console.log(`Znaleziono ${result.length} potomków dla konia ${horseId}`);
     if (gender) console.log(`Filtr płci: ${gender}`);
     if (breeder_id) console.log(`Filtr hodowcy: ${breeder_id}`);
-    
+
     return result;
   } catch (error) {
     console.error('Błąd podczas pobierania potomstwa:', error);
@@ -205,15 +205,15 @@ exports.generatePedigreeHtml = async (knex, horseId, depth) => {
       if (!node) {
         return '<div class="node empty">Brak danych</div>';
       }
-      
+
       const birthYear = node.birth_date ? new Date(node.birth_date).getFullYear() : '';
       const birthInfo = birthYear ? ` (ur. ${birthYear})` : '';
-      
+
       let html = `<div class="node" data-horse-id="${node.id}">
         <div class="horse-name">${escapeHtml(node.name)}</div>
         <div class="horse-details">${node.gender}, ${node.breed || 'brak rasy'}${birthInfo}</div>
       </div>`;
-      
+
       if (currentDepth > 0 && (node.sire || node.dam)) {
         html += '<div class="branch">';
         html += '<div class="parent sire">';
@@ -416,7 +416,7 @@ function generatePedigreeHtml(horse, depth, renderNode) {
       </head>
       <body>
         <div class="container">
-          <h1>🐎 Rodowód konia ${escapeHtml(horse.name)}</h1>
+          <h1> Rodowód konia ${escapeHtml(horse.name)}</h1>
           <div class="info">Głębokość: ${depth} ${depth === 1 ? 'generacja' : 'generacje'}</div>
           <div class="tree">
             ${renderNode(horse, depth)}
@@ -430,7 +430,7 @@ function generatePedigreeHtml(horse, depth, renderNode) {
             node.addEventListener('click', () => {
               const horseId = node.dataset.horseId;
               const horseName = node.querySelector('.horse-name').textContent;
-              alert('🐴 ' + horseName + '\\nID: ' + horseId + '\\n\\nKliknij OK aby kontynuować');
+              alert(horseName + '\\nID: ' + horseId + '\\n\\nKliknij OK aby kontynuować');
             });
           });
         </script>

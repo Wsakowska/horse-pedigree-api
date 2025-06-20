@@ -2,6 +2,9 @@ const express = require('express');
 const router = express.Router();
 const horseController = require('../controllers/horseController');
 
+// WAŻNE: Endpoint breeding/check MUSI być przed /:id
+router.get('/breeding/check', horseController.checkBreeding);
+
 // Podstawowe operacje CRUD
 router.get('/', horseController.getAllHorses);
 router.get('/:id', horseController.getHorseById);
@@ -15,8 +18,5 @@ router.get('/:id/pedigree/html/:depth', horseController.getPedigreeHtml);
 
 // Operacje związane z potomstwem
 router.get('/:id/offspring', horseController.getOffspring);
-
-// NOWY endpoint: Sprawdzanie możliwości krzyżowania
-router.get('/breeding/check', horseController.checkBreeding);
 
 module.exports = router;
