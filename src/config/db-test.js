@@ -11,6 +11,12 @@ const knexInstance = global.testKnex || knex({
     database: 'horse_pedigree',
     port: 5432
   },
+      migrations: {
+      directory: './src/migrations'
+    },
+    seeds: {
+      directory: './src/seeds'
+    },
   debug: false
 });
 

@@ -7,21 +7,40 @@ app.use(express.json());
 app.use('/api/horses', horseRoutes);
 
 describe('Horse API', () => {
-  beforeEach(async () => {
-    // Przygotuj dane testowe
-    await global.testKnex('countries').insert({ code: 'PL', name: 'Polska' });
+  // Helper function to setup fresh test data FOR EVERY TEST
+  async function setupTestData() {
+    // ZAWSZE dodawaj wszystkie dane w odpowiedniej kolejności
+    // 1. Kraje
+    await global.testKnex('countries').insert([
+      { code: 'PL', name: 'Polska' },
+      { code: 'DE', name: 'Niemcy' }
+    ]);
+    
+    // 2. Rasy
     await global.testKnex('breeds').insert([
       { id: 1, name: 'oo' },
       { id: 2, name: 'xx' },
       { id: 3, name: 'xo' },
       { id: 4, name: 'xxoo' }
     ]);
-    await global.testKnex('colors').insert({ id: 1, name: 'Gniada' });
-    await global.testKnex('breeders').insert({ id: 1, name: 'Hodowla XYZ', country_code: 'PL' });
-  });
+    
+    // 3. Maści
+    await global.testKnex('colors').insert([
+      { id: 1, name: 'Gniada' },
+      { id: 2, name: 'Kara' },
+      { id: 3, name: 'Siwa' }
+    ]);
+    
+    // 4. Hodowcy (po krajach!)
+    await global.testKnex('breeders').insert([
+      { id: 1, name: 'Hodowla XYZ', country_code: 'PL' },
+      { id: 2, name: 'Hodowla ABC', country_code: 'DE' }
+    ]);
+  }
 
   describe('GET /horses', () => {
     it('pobiera wszystkie konie', async () => {
+      await setupTestData();
       await global.testKnex('horses').insert({
         id: 1,
         name: 'Bucefał',
@@ -30,6 +49,7 @@ describe('Horse API', () => {
         color_id: 1,
         breeder_id: 1
       });
+      
       const res = await request(app).get('/api/horses');
       expect(res.status).toBe(200);
       expect(res.body).toHaveLength(1);
@@ -37,10 +57,12 @@ describe('Horse API', () => {
     });
 
     it('filtruje konie po płci', async () => {
+      await setupTestData();
       await global.testKnex('horses').insert([
         { id: 1, name: 'Ogier1', breed_id: 1, gender: 'ogier', color_id: 1, breeder_id: 1 },
         { id: 2, name: 'Klacz1', breed_id: 1, gender: 'klacz', color_id: 1, breeder_id: 1 }
       ]);
+      
       const res = await request(app).get('/api/horses?gender=ogier');
       expect(res.status).toBe(200);
       expect(res.body).toHaveLength(1);
@@ -48,6 +70,7 @@ describe('Horse API', () => {
     });
 
     it('stosuje paginację', async () => {
+      await setupTestData();
       // Wstaw 3 konie
       await global.testKnex('horses').insert([
         { id: 1, name: 'Koń1', breed_id: 1, gender: 'ogier', color_id: 1, breeder_id: 1 },
@@ -62,6 +85,7 @@ describe('Horse API', () => {
 
   describe('GET /horses/:id', () => {
     it('pobiera pojedynczego konia', async () => {
+      await setupTestData();
       await global.testKnex('horses').insert({
         id: 1,
         name: 'Bucefał',
@@ -84,6 +108,7 @@ describe('Horse API', () => {
 
   describe('POST /horses', () => {
     it('dodaje nowego konia', async () => {
+      await setupTestData();
       const res = await request(app)
         .post('/api/horses')
         .send({
@@ -98,6 +123,7 @@ describe('Horse API', () => {
     });
 
     it('zwraca błąd dla duplikatu nazwy', async () => {
+      await setupTestData();
       await global.testKnex('horses').insert({
         id: 1,
         name: 'Bucefał',
@@ -120,6 +146,7 @@ describe('Horse API', () => {
     });
 
     it('zwraca błąd dla nieprawidłowej płci', async () => {
+      await setupTestData();
       const res = await request(app)
         .post('/api/horses')
         .send({
@@ -134,6 +161,7 @@ describe('Horse API', () => {
     });
 
     it('automatycznie oblicza rasę dla potomstwa', async () => {
+      await setupTestData();
       // Dodaj rodziców
       await global.testKnex('horses').insert([
         { id: 1, name: 'Ojciec_oo', breed_id: 1, gender: 'ogier', color_id: 1, breeder_id: 1 }, // oo
@@ -157,6 +185,7 @@ describe('Horse API', () => {
     });
 
     it('waliduje płeć rodziców', async () => {
+      await setupTestData();
       await global.testKnex('horses').insert([
         { id: 1, name: 'NieOgier', breed_id: 1, gender: 'klacz', color_id: 1, breeder_id: 1 }
       ]);
@@ -177,8 +206,9 @@ describe('Horse API', () => {
     });
 
     it('zapobiega identycznym rodzicom', async () => {
+      await setupTestData();
       await global.testKnex('horses').insert([
-        { id: 1, name: 'Koń', breed_id: 1, gender: 'ogier', color_id: 1, breeder_id: 1 }
+        { id: 1, name: 'Ogier', breed_id: 1, gender: 'ogier', color_id: 1, breeder_id: 1 }
       ]);
       
       const res = await request(app)
@@ -200,6 +230,7 @@ describe('Horse API', () => {
 
   describe('PUT /horses/:id', () => {
     it('aktualizuje konia', async () => {
+      await setupTestData();
       await global.testKnex('horses').insert({
         id: 1,
         name: 'Stara Nazwa',
@@ -224,6 +255,7 @@ describe('Horse API', () => {
     });
 
     it('zapobiega cyklicznym relacjom', async () => {
+      await setupTestData();
       await global.testKnex('horses').insert([
         { id: 1, name: 'Dziadek', breed_id: 1, gender: 'ogier', color_id: 1, breeder_id: 1 },
         { id: 2, name: 'Ojciec', breed_id: 1, gender: 'ogier', color_id: 1, breeder_id: 1, sire_id: 1 },
@@ -247,6 +279,7 @@ describe('Horse API', () => {
     });
 
     it('zapobiega samorodztwie', async () => {
+      await setupTestData();
       await global.testKnex('horses').insert({
         id: 1,
         name: 'Koń',
@@ -274,6 +307,7 @@ describe('Horse API', () => {
 
   describe('DELETE /horses/:id', () => {
     it('usuwa konia bez potomstwa', async () => {
+      await setupTestData();
       await global.testKnex('horses').insert({
         id: 1,
         name: 'Koń',
@@ -288,6 +322,7 @@ describe('Horse API', () => {
     });
 
     it('zapobiega usunięciu konia z potomstwem', async () => {
+      await setupTestData();
       await global.testKnex('horses').insert([
         { id: 1, name: 'Ojciec', breed_id: 1, gender: 'ogier', color_id: 1, breeder_id: 1 },
         { id: 2, name: 'Dziecko', breed_id: 1, gender: 'klacz', color_id: 1, breeder_id: 1, sire_id: 1 }
@@ -301,6 +336,7 @@ describe('Horse API', () => {
 
   describe('GET /horses/:id/pedigree/:depth', () => {
     it('pobiera rodowód konia', async () => {
+      await setupTestData();
       await global.testKnex('horses').insert([
         { id: 1, name: 'Ojciec', breed_id: 1, gender: 'ogier', color_id: 1, breeder_id: 1 },
         { id: 2, name: 'Matka', breed_id: 1, gender: 'klacz', color_id: 1, breeder_id: 1 },
@@ -322,6 +358,7 @@ describe('Horse API', () => {
 
   describe('GET /horses/:id/offspring', () => {
     it('pobiera potomstwo konia', async () => {
+      await setupTestData();
       await global.testKnex('horses').insert([
         { id: 1, name: 'Ojciec', breed_id: 1, gender: 'ogier', color_id: 1, breeder_id: 1 },
         { id: 2, name: 'Dziecko', breed_id: 1, gender: 'klacz', color_id: 1, breeder_id: 1, sire_id: 1 }
@@ -334,6 +371,7 @@ describe('Horse API', () => {
     });
 
     it('filtruje potomstwo po płci', async () => {
+      await setupTestData();
       await global.testKnex('horses').insert([
         { id: 1, name: 'Ojciec', breed_id: 1, gender: 'ogier', color_id: 1, breeder_id: 1 },
         { id: 2, name: 'Syn', breed_id: 1, gender: 'ogier', color_id: 1, breeder_id: 1, sire_id: 1 },
@@ -348,6 +386,7 @@ describe('Horse API', () => {
 
   describe('GET /horses/:id/pedigree/html/:depth', () => {
     it('generuje HTML rodowodu', async () => {
+      await setupTestData();
       await global.testKnex('horses').insert([
         { id: 1, name: 'Bucefał', breed_id: 1, gender: 'ogier', color_id: 1, breeder_id: 1 }
       ]);
@@ -367,6 +406,7 @@ describe('Horse API', () => {
 
   describe('GET /horses/breeding/check', () => {
     it('sprawdza możliwość krzyżowania', async () => {
+      await setupTestData();
       await global.testKnex('horses').insert([
         { id: 1, name: 'Ogier', breed_id: 1, gender: 'ogier', color_id: 1, breeder_id: 1 },
         { id: 2, name: 'Klacz', breed_id: 2, gender: 'klacz', color_id: 1, breeder_id: 1 }
@@ -380,6 +420,7 @@ describe('Horse API', () => {
     });
 
     it('wykrywa nieprawidłowe płcie przy krzyżowaniu', async () => {
+      await setupTestData();
       await global.testKnex('horses').insert([
         { id: 1, name: 'Klacz1', breed_id: 1, gender: 'klacz', color_id: 1, breeder_id: 1 },
         { id: 2, name: 'Klacz2', breed_id: 2, gender: 'klacz', color_id: 1, breeder_id: 1 }
@@ -391,6 +432,7 @@ describe('Horse API', () => {
     });
 
     it('wykrywa pokrewieństwo', async () => {
+      await setupTestData();
       await global.testKnex('horses').insert([
         { id: 1, name: 'Dziadek', breed_id: 1, gender: 'ogier', color_id: 1, breeder_id: 1 },
         { id: 2, name: 'Babcia', breed_id: 2, gender: 'klacz', color_id: 1, breeder_id: 1 },

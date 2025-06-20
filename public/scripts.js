@@ -1,16 +1,103 @@
 const API_URL = 'http://localhost:3000/api';
 
-function showSection(sectionId) {
-  document.querySelectorAll('section').forEach(section => {
-    section.classList.toggle('active', section.id === sectionId);
-    section.classList.toggle('hidden', section.id !== sectionId);
+// Sprawdź czy DOM jest gotowy
+document.addEventListener('DOMContentLoaded', function() {
+  console.log('DOM loaded, initializing application...');
+  initializeApp();
+});
+
+// Główna funkcja inicjalizacji
+function initializeApp() {
+  try {
+    // Załaduj dane startowe
+    loadHorses();
+    loadSelectOptions();
+
+    // Skonfiguruj event listeners dla formularzy
+    setupFormHandlers();
+    
+    // Skonfiguruj event listeners dla wyszukiwania i sortowania
+    setupSearchAndSort();
+    
+    console.log('Application initialized successfully');
+  } catch (error) {
+    console.error('Error initializing application:', error);
+    alert('Błąd podczas inicjalizacji aplikacji. Sprawdź konsolę przeglądarki.');
+  }
+}
+
+// Funkcja konfigurująca obsługę formularzy
+function setupFormHandlers() {
+  const forms = [
+    { id: 'country-form', endpoint: 'countries', callback: loadSelectOptions },
+    { id: 'breeder-form', endpoint: 'breeders', callback: loadSelectOptions },
+    { id: 'horse-form', endpoint: 'horses', callback: loadHorses },
+    { id: 'color-form', endpoint: 'colors', callback: loadSelectOptions },
+    { id: 'breed-form', endpoint: 'breeds', callback: loadSelectOptions }
+  ];
+
+  forms.forEach(({ id, endpoint, callback }) => {
+    const form = document.getElementById(id);
+    if (form) {
+      handleFormSubmit(id, endpoint, callback);
+    } else {
+      console.warn(`Form ${id} not found`);
+    }
   });
+}
+
+// Funkcja konfigurująca wyszukiwanie i sortowanie
+function setupSearchAndSort() {
+  const searchInput = document.getElementById('search-horses');
+  const sortSelect = document.getElementById('sort-horses');
+  
+  if (searchInput) {
+    searchInput.addEventListener('input', (e) => {
+      const sortOption = sortSelect ? sortSelect.value : 'name-asc';
+      loadHorses(e.target.value, sortOption);
+    });
+  }
+  
+  if (sortSelect) {
+    sortSelect.addEventListener('change', (e) => {
+      const searchQuery = searchInput ? searchInput.value : '';
+      loadHorses(searchQuery, e.target.value);
+    });
+  }
+}
+
+function showSection(sectionId) {
+  console.log(`Switching to section: ${sectionId}`);
+  
+  // Ukryj wszystkie sekcje
+  const sections = document.querySelectorAll('main section');
+  sections.forEach(section => {
+    section.classList.remove('active');
+    section.classList.add('hidden');
+  });
+  
+  // Pokaż wybraną sekcję
+  const targetSection = document.getElementById(sectionId);
+  if (targetSection) {
+    targetSection.classList.remove('hidden');
+    targetSection.classList.add('active');
+    console.log(`Section ${sectionId} is now active`);
+  } else {
+    console.error(`Section ${sectionId} not found`);
+  }
 }
 
 function resetForm(formId) {
   const form = document.getElementById(formId);
+  if (!form) {
+    console.error(`Form ${formId} not found`);
+    return;
+  }
+  
   form.reset();
   form.querySelectorAll('.error-message').forEach(span => span.textContent = '');
+  form.querySelectorAll('.error').forEach(input => input.classList.remove('error'));
+  
   if (formId === 'horse-form') {
     form.onsubmit = null;
     handleFormSubmit('horse-form', 'horses', loadHorses);
@@ -75,6 +162,91 @@ async function deleteData(endpoint, id) {
   }
 }
 
+function validateForm(formId) {
+  const form = document.getElementById(formId);
+  if (!form) {
+    console.error(`Form ${formId} not found`);
+    return false;
+  }
+  
+  const inputs = form.querySelectorAll('input[required], select[required]');
+  let isValid = true;
+
+  inputs.forEach(input => {
+    const errorSpan = input.parentElement.querySelector('.error-message');
+    let inputValid = true;
+    let errorMessage = '';
+
+    // Sprawdź czy pole jest wypełnione
+    if (!input.value.trim()) {
+      inputValid = false;
+      errorMessage = 'To pole jest wymagane.';
+    }
+    // Sprawdź pattern jeśli istnieje
+    else if (input.pattern && !new RegExp(input.pattern).test(input.value)) {
+      inputValid = false;
+      errorMessage = 'Nieprawidłowy format danych.';
+    }
+    // Sprawdź długość
+    else if (input.maxLength && input.value.length > input.maxLength) {
+      inputValid = false;
+      errorMessage = `Maksymalna długość: ${input.maxLength} znaków.`;
+    }
+
+    if (errorSpan) {
+      errorSpan.textContent = errorMessage;
+    }
+
+    if (!inputValid) {
+      isValid = false;
+      input.classList.add('error');
+    } else {
+      input.classList.remove('error');
+    }
+  });
+
+  return isValid;
+}
+
+function handleFormSubmit(formId, endpoint, callback) {
+  const form = document.getElementById(formId);
+  if (!form) {
+    console.error(`Form ${formId} not found`);
+    return;
+  }
+  
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    console.log(`Submitting form: ${formId}`);
+    
+    if (!validateForm(formId)) {
+      console.log('Form validation failed');
+      return;
+    }
+
+    const formData = new FormData(form);
+    const data = Object.fromEntries(formData);
+    
+    // Konwertuj puste stringi na null dla opcjonalnych pól
+    Object.keys(data).forEach(key => {
+      if (data[key] === '') {
+        data[key] = null;
+      }
+    });
+    
+    try {
+      console.log('Sending data:', data);
+      await postData(endpoint, data);
+      alert('Dodano pomyślnie!');
+      resetForm(formId);
+      callback();
+    } catch (error) {
+      console.error('Form submission error:', error);
+      alert('Błąd podczas dodawania: ' + error.message);
+    }
+  });
+}
+
 async function loadHorses(searchQuery = '', sortOption = 'name-asc') {
   try {
     const horses = await fetchData('horses');
@@ -97,6 +269,11 @@ async function loadHorses(searchQuery = '', sortOption = 'name-asc') {
     }
 
     const horseList = document.getElementById('horse-list');
+    if (!horseList) {
+      console.error('horse-list element not found');
+      return;
+    }
+    
     horseList.innerHTML = '';
 
     filteredHorses.forEach(horse => {
@@ -112,69 +289,94 @@ async function loadHorses(searchQuery = '', sortOption = 'name-asc') {
         <p>Płeć: ${horse.gender}</p>
         <p>Maść: ${color}</p>
         <p>Hodowca: ${breeder}</p>
-        <button onclick="showPedigree(${horse.id})">Pokaż Rodowód</button>
-        <button onclick="showOffspring(${horse.id})">Pokaż Potomstwo</button>
-        <button onclick="editHorse(${horse.id})">Edytuj</button>
-        <button onclick="deleteHorse(${horse.id})">Usuń</button>
+        <div class="horse-actions">
+          <button onclick="showPedigree(${horse.id})">Pokaż Rodowód</button>
+          <button onclick="showOffspring(${horse.id})">Pokaż Potomstwo</button>
+          <button onclick="editHorse(${horse.id})">Edytuj</button>
+          <button onclick="deleteHorse(${horse.id})" class="delete-btn">Usuń</button>
+        </div>
       `;
       horseList.appendChild(card);
     });
   } catch (error) {
+    console.error('Error loading horses:', error);
     alert('Błąd podczas ładowania koni: ' + error.message);
   }
 }
 
 async function loadSelectOptions() {
   try {
-    const countries = await fetchData('countries');
-    const breeds = await fetchData('breeds');
-    const colors = await fetchData('colors');
-    const breeders = await fetchData('breeders');
-    const horses = await fetchData('horses');
+    const [countries, breeds, colors, breeders, horses] = await Promise.all([
+      fetchData('countries'),
+      fetchData('breeds'),
+      fetchData('colors'),
+      fetchData('breeders'),
+      fetchData('horses')
+    ]);
 
+    // Załaduj opcje dla krajów
     const breederCountrySelect = document.getElementById('breeder-country-select');
-    countries.forEach(country => {
-      const option = document.createElement('option');
-      option.value = country.code;
-      option.textContent = country.name;
-      breederCountrySelect.appendChild(option);
-    });
+    if (breederCountrySelect) {
+      breederCountrySelect.innerHTML = '<option value="">Wybierz kraj</option>';
+      countries.forEach(country => {
+        const option = document.createElement('option');
+        option.value = country.code;
+        option.textContent = country.name;
+        breederCountrySelect.appendChild(option);
+      });
+    }
 
+    // Załaduj opcje dla ras
     const horseBreedSelect = document.getElementById('horse-breed-select');
-    breeds.forEach(breed => {
-      const option = document.createElement('option');
-      option.value = breed.id;
-      option.textContent = breed.name;
-      horseBreedSelect.appendChild(option);
-    });
+    if (horseBreedSelect) {
+      horseBreedSelect.innerHTML = '<option value="">Wybierz rasę</option>';
+      breeds.forEach(breed => {
+        const option = document.createElement('option');
+        option.value = breed.id;
+        option.textContent = breed.name;
+        horseBreedSelect.appendChild(option);
+      });
+    }
 
+    // Załaduj opcje dla maści
     const horseColorSelect = document.getElementById('horse-color-select');
-    colors.forEach(color => {
-      const option = document.createElement('option');
-      option.value = color.id;
-      option.textContent = color.name;
-      horseColorSelect.appendChild(option);
-    });
+    if (horseColorSelect) {
+      horseColorSelect.innerHTML = '<option value="">Wybierz maść</option>';
+      colors.forEach(color => {
+        const option = document.createElement('option');
+        option.value = color.id;
+        option.textContent = color.name;
+        horseColorSelect.appendChild(option);
+      });
+    }
 
+    // Załaduj opcje dla hodowców
     const horseBreederSelect = document.getElementById('horse-breeder-select');
-    breeders.forEach(breeder => {
-      const option = document.createElement('option');
-      option.value = breeder.id;
-      option.textContent = breeder.name;
-      horseBreederSelect.appendChild(option);
-    });
+    if (horseBreederSelect) {
+      horseBreederSelect.innerHTML = '<option value="">Wybierz hodowcę</option>';
+      breeders.forEach(breeder => {
+        const option = document.createElement('option');
+        option.value = breeder.id;
+        option.textContent = breeder.name;
+        horseBreederSelect.appendChild(option);
+      });
+    }
 
     const offspringBreederSelect = document.getElementById('offspring-breeder');
-    breeders.forEach(breeder => {
-      const option = document.createElement('option');
-      option.value = breeder.id;
-      option.textContent = breeder.name;
-      offspringBreederSelect.appendChild(option);
-    });
+    if (offspringBreederSelect) {
+      offspringBreederSelect.innerHTML = '<option value="">Wszyscy</option>';
+      breeders.forEach(breeder => {
+        const option = document.createElement('option');
+        option.value = breeder.id;
+        option.textContent = breeder.name;
+        offspringBreederSelect.appendChild(option);
+      });
+    }
 
     window.allHorses = horses; // Store for filtering
     updateHorseSelects(horses);
   } catch (error) {
+    console.error('Error loading select options:', error);
     alert('Błąd podczas ładowania opcji: ' + error.message);
   }
 }
@@ -182,65 +384,38 @@ async function loadSelectOptions() {
 function updateHorseSelects(horses, sireFilter = '', damFilter = '') {
   const sireSelect = document.getElementById('horse-sire-select');
   const damSelect = document.getElementById('horse-dam-select');
-  sireSelect.innerHTML = '<option value="">Brak</option>';
-  damSelect.innerHTML = '<option value="">Brak</option>';
-
-  horses.forEach(horse => {
-    if (horse.gender === 'ogier' && (!sireFilter || horse.name.toLowerCase().includes(sireFilter.toLowerCase()))) {
-      const option = document.createElement('option');
-      option.value = horse.id;
-      option.textContent = horse.name;
-      sireSelect.appendChild(option);
-    }
-    if (horse.gender === 'klacz' && (!damFilter || horse.name.toLowerCase().includes(damFilter.toLowerCase()))) {
-      const option = document.createElement('option');
-      option.value = horse.id;
-      option.textContent = horse.name;
-      damSelect.appendChild(option);
-    }
-  });
+  
+  if (sireSelect) {
+    sireSelect.innerHTML = '<option value="">Brak</option>';
+    horses.forEach(horse => {
+      if (horse.gender === 'ogier' && (!sireFilter || horse.name.toLowerCase().includes(sireFilter.toLowerCase()))) {
+        const option = document.createElement('option');
+        option.value = horse.id;
+        option.textContent = horse.name;
+        sireSelect.appendChild(option);
+      }
+    });
+  }
+  
+  if (damSelect) {
+    damSelect.innerHTML = '<option value="">Brak</option>';
+    horses.forEach(horse => {
+      if (horse.gender === 'klacz' && (!damFilter || horse.name.toLowerCase().includes(damFilter.toLowerCase()))) {
+        const option = document.createElement('option');
+        option.value = horse.id;
+        option.textContent = horse.name;
+        damSelect.appendChild(option);
+      }
+    });
+  }
 }
 
 function filterHorses(type) {
-  const searchInput = document.getElementById(`${type}-search`).value;
-  updateHorseSelects(window.allHorses, type === 'sire' ? searchInput : '', type === 'dam' ? searchInput : '');
-}
-
-function validateForm(formId) {
-  const form = document.getElementById(formId);
-  const inputs = form.querySelectorAll('input[required], select[required]');
-  let isValid = true;
-
-  inputs.forEach(input => {
-    const errorSpan = input.parentElement.querySelector('.error-message');
-    if (!input.value || (input.pattern && !new RegExp(input.pattern).test(input.value))) {
-      errorSpan.textContent = 'To pole jest wymagane lub zawiera nieprawidłowe dane.';
-      isValid = false;
-    } else {
-      errorSpan.textContent = '';
-    }
-  });
-
-  return isValid;
-}
-
-function handleFormSubmit(formId, endpoint, callback) {
-  const form = document.getElementById(formId);
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    if (!validateForm(formId)) return;
-
-    const formData = new FormData(form);
-    const data = Object.fromEntries(formData);
-    try {
-      await postData(endpoint, data);
-      alert('Dodano pomyślnie!');
-      resetForm(formId);
-      callback();
-    } catch (error) {
-      alert('Błąd podczas dodawania: ' + error.message);
-    }
-  });
+  const searchInput = document.getElementById(`${type}-search`);
+  if (searchInput && window.allHorses) {
+    const searchValue = searchInput.value;
+    updateHorseSelects(window.allHorses, type === 'sire' ? searchValue : '', type === 'dam' ? searchValue : '');
+  }
 }
 
 async function editHorse(id) {
@@ -248,6 +423,11 @@ async function editHorse(id) {
     const horse = await fetchData(`horses/${id}`);
     showSection('add-horse');
     const form = document.getElementById('horse-form');
+    if (!form) {
+      alert('Formularz nie został znaleziony');
+      return;
+    }
+    
     form.name.value = horse.name;
     form.breed_id.value = horse.breed_id;
     form.birth_date.value = horse.birth_date ? horse.birth_date.split('T')[0] : '';
@@ -313,13 +493,15 @@ async function fetchPedigreeHtml() {
     if (!response.ok) throw new Error(`Błąd HTTP ${response.status}`);
     const html = await response.text();
     const treeContainer = document.getElementById('pedigree-tree');
-    treeContainer.innerHTML = html;
-    treeContainer.querySelectorAll('.node').forEach(node => {
-      node.addEventListener('click', () => {
-        const horseId = node.dataset.horseId || window.currentHorseId;
-        showHorseDetails(horseId);
+    if (treeContainer) {
+      treeContainer.innerHTML = html;
+      treeContainer.querySelectorAll('.node').forEach(node => {
+        node.addEventListener('click', () => {
+          const horseId = node.dataset.horseId || window.currentHorseId;
+          showHorseDetails(horseId);
+        });
       });
-    });
+    }
   } catch (error) {
     alert('Błąd podczas pobierania rodowodu: ' + error.message);
   }
@@ -327,10 +509,13 @@ async function fetchPedigreeHtml() {
 
 async function showHorseDetails(horseId) {
   try {
-    const horse = await fetchData(`horses/${horseId}`);
-    const breeds = await fetchData('breeds');
-    const colors = await fetchData('colors');
-    const breeders = await fetchData('breeders');
+    const [horse, breeds, colors, breeders] = await Promise.all([
+      fetchData(`horses/${horseId}`),
+      fetchData('breeds'),
+      fetchData('colors'),
+      fetchData('breeders')
+    ]);
+    
     const breed = breeds.find(b => b.id === horse.breed_id)?.name || 'Brak';
     const color = colors.find(c => c.id === horse.color_id)?.name || 'Brak';
     const breeder = breeders.find(b => b.id === horse.breeder_id)?.name || 'Brak';
@@ -358,46 +543,41 @@ async function fetchOffspring() {
   }
   const gender = document.getElementById('offspring-gender').value;
   const breederId = document.getElementById('offspring-breeder').value;
-  let url = `${API_URL}/horses/${window.currentHorseId}/offspring`;
+  let url = `horses/${window.currentHorseId}/offspring`;
   const params = new URLSearchParams();
   if (gender) params.append('gender', gender);
   if (breederId) params.append('breeder_id', breederId);
   if (params.toString()) url += `?${params.toString()}`;
 
   try {
-    const offspring = await fetchData(url.slice(url.indexOf('horses')));
+    const result = await fetchData(url);
+    const offspring = result.offspring || result; // Handle both formats
     const offspringList = document.getElementById('offspring-list');
+    if (!offspringList) {
+      console.error('offspring-list element not found');
+      return;
+    }
+    
     offspringList.innerHTML = '';
+
+    if (offspring.length === 0) {
+      offspringList.innerHTML = '<p>Brak potomstwa spełniającego kryteria.</p>';
+      return;
+    }
 
     offspring.forEach(horse => {
       const card = document.createElement('div');
       card.className = 'horse-card';
-      card.innerHTML = `<h3>${horse.name}</h3><p>Płeć: ${horse.gender}</p>`;
+      card.innerHTML = `
+        <h3>${horse.name}</h3>
+        <p>Płeć: ${horse.gender}</p>
+        <p>Data urodzenia: ${horse.birth_date ? new Date(horse.birth_date).toLocaleDateString() : 'Brak'}</p>
+        <button onclick="showPedigree(${horse.id})">Pokaż Rodowód</button>
+        <button onclick="editHorse(${horse.id})">Edytuj</button>
+      `;
       offspringList.appendChild(card);
     });
   } catch (error) {
     alert('Błąd podczas pobierania potomstwa: ' + error.message);
   }
 }
-
-// Initialize
-document.addEventListener('DOMContentLoaded', () => {
-  loadHorses();
-  loadSelectOptions();
-
-  handleFormSubmit('country-form', 'countries', loadSelectOptions);
-  handleFormSubmit('breeder-form', 'breeders', loadSelectOptions);
-  handleFormSubmit('horse-form', 'horses', loadHorses);
-  handleFormSubmit('color-form', 'colors', loadSelectOptions);
-  handleFormSubmit('breed-form', 'breeds', loadSelectOptions);
-
-  document.getElementById('search-horses').addEventListener('input', (e) => {
-    const sortOption = document.getElementById('sort-horses').value;
-    loadHorses(e.target.value, sortOption);
-  });
-
-  document.getElementById('sort-horses').addEventListener('change', (e) => {
-    const searchQuery = document.getElementById('search-horses').value;
-    loadHorses(searchQuery, e.target.value);
-  });
-});

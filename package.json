@@ -10,8 +10,10 @@
     "migrate:rollback": "npx knex migrate:rollback",
     "migrate:status": "npx knex migrate:status",
     "seed": "npx knex seed:run",
-    "test": "jest --coverage",
-    "test:watch": "jest --watch",
+    "test": "jest --coverage --runInBand --forceExit",
+    "test:watch": "jest --watch --runInBand",
+    "test:backend": "jest --selectProjects backend --runInBand --forceExit",
+    "test:frontend": "jest --selectProjects frontend --runInBand --forceExit",
     "cleanup": "node cleanup.js all",
     "cleanup:duplicates": "node cleanup.js cleanup",
     "cleanup:constraints": "node cleanup.js constraints",
@@ -31,9 +33,10 @@
     "@babel/preset-env": "^7.22.10",
     "jest": "^29.7.0",
     "jest-environment-jsdom": "^29.7.0",
+    "jsdom": "^22.1.0",
     "nodemon": "^3.0.1",
     "supertest": "^6.3.3",
-    "uuid": "^11.1.0"
+    "uuid": "^9.0.0"
   },
   "engines": {
     "node": ">=16.0.0",

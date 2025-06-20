@@ -8,7 +8,7 @@ app.use('/api/breeders', breederRoutes);
 
 describe('Breeder API', () => {
   beforeEach(async () => {
-    // Dodaj kraj do testów
+    // ZAWSZE dodaj kraj przed hodowcą
     await global.testKnex('countries').insert({ code: 'PL', name: 'Polska' });
   });
 

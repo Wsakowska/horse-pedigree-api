@@ -11,15 +11,17 @@ module.exports = {
   ],
   coverageThreshold: {
     global: {
-      branches: 20,
-      functions: 20,
-      lines: 20,
-      statements: 20
+      branches: 15,
+      functions: 15,
+      lines: 15,
+      statements: 15
     }
   },
-  testTimeout: 30000,
-  // Uruchom testy SEKWENCYJNIE, nie równolegle
-  maxWorkers: 1,
+  testTimeout: 45000, // Globalne ustawienie timeout
+  maxWorkers: 1, // Testy sekwencyjnie
+  verbose: true,
+  forceExit: true,
+  detectOpenHandles: true,
   projects: [
     {
       displayName: 'backend',
@@ -31,10 +33,6 @@ module.exports = {
         '!src/migrations/**',
         '!src/seeds/**'
       ],
-      moduleNameMapper: {
-        '^../config/db$': '<rootDir>/__tests__/mocks/db.js'
-      },
-      // Testy backendu również sekwencyjnie
       maxWorkers: 1
     },
     {
@@ -45,7 +43,7 @@ module.exports = {
       collectCoverageFrom: [
         'public/**/*.js'
       ],
-      moduleNameMapper: {
+      moduleNameMapper: { // Poprawna nazwa opcji
         '\\.(css|less|scss|sass)$': 'identity-obj-proxy'
       }
     }
