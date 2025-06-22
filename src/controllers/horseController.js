@@ -1,12 +1,11 @@
 const knex = require('../config/db');
 const Joi = require('joi');
-const { calculateBreed, getPedigree, getOffspring, generatePedigreeHtml, checkCyclicRelations } = require('../services/pedigreeService');
+const { calculateBreed, getPedigree, getOffspring, generatePedigreeHtml: generateHtml, checkCyclicRelations } = require('../services/pedigreeService');
 
-// POPRAWIONA walidacja - breed_id jest opcjonalne
 const horseSchema = Joi.object({
   name: Joi.string().max(100).required(),
-  breed_id: Joi.number().integer().optional().allow(null), // ZMIANA: opcjonalne
-  birth_date: Joi.date().optional().allow(null),
+  breed_id: Joi.number().integer().optional().allow(null), // opcjonalne
+  birth_date: Joi.date().max('now').optional().allow(null), // POPRAWKA: max('now') = nie można w przyszłości
   gender: Joi.string().valid('klacz', 'ogier', 'wałach').required(),
   sire_id: Joi.number().integer().optional().allow(null),
   dam_id: Joi.number().integer().optional().allow(null),
@@ -72,7 +71,14 @@ exports.getHorseById = async (req, res) => {
 
 exports.createHorse = async (req, res) => {
   const { error } = horseSchema.validate(req.body);
-  if (error) return res.status(400).json({ error: error.details[0].message });
+  if (error) {
+    // POPRAWKA: Lepszy komunikat dla daty
+    let errorMessage = error.details[0].message;
+    if (error.details[0].path.includes('birth_date')) {
+      errorMessage = 'Data urodzenia nie może być w przyszłości';
+    }
+    return res.status(400).json({ error: errorMessage });
+  }
 
   const { sire_id, dam_id, breed_id, name } = req.body;
 
@@ -148,7 +154,14 @@ exports.createHorse = async (req, res) => {
 
 exports.updateHorse = async (req, res) => {
   const { error } = horseSchema.validate(req.body);
-  if (error) return res.status(400).json({ error: error.details[0].message });
+  if (error) {
+    // POPRAWKA: Lepszy komunikat dla daty
+    let errorMessage = error.details[0].message;
+    if (error.details[0].path.includes('birth_date')) {
+      errorMessage = 'Data urodzenia nie może być w przyszłości';
+    }
+    return res.status(400).json({ error: errorMessage });
+  }
 
   const { sire_id, dam_id, name, breed_id } = req.body;
   const horseId = req.params.id;
@@ -365,7 +378,7 @@ exports.getPedigreeHtml = async (req, res) => {
       return res.status(404).json({ error: 'Koń nie znaleziony' });
     }
 
-    const html = await generatePedigreeHtml(knex, parseInt(id), depthNum);
+    const html = await generateHtml(knex, parseInt(id), depthNum);
     res.set('Content-Type', 'text/html; charset=utf-8');
     res.send(html);
   } catch (error) {

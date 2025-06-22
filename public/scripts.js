@@ -30,6 +30,116 @@ function showSection(sectionId) {
   console.log(`Przełączono na sekcję: ${sectionId}`);
 }
 
+// =====================================
+// NOWY SYSTEM FORMULARZY
+// =====================================
+
+let formModes = {}; // Przechowuje tryb formularza: 'add' lub 'edit'
+let breedingCheckResult = null; // Przechowuje wynik ostatniej weryfikacji
+
+function setFormMode(formId, mode, editId = null) {
+  formModes[formId] = { mode, editId };
+  console.log(`Formularz ${formId} ustawiony w tryb: ${mode}`, editId ? `ID: ${editId}` : '');
+}
+
+function getFormMode(formId) {
+  return formModes[formId] || { mode: 'add', editId: null };
+}
+
+function updateFormTitle(formId, mode) {
+  if (formId === 'horse-form') {
+    const section = document.getElementById('add-horse');
+    const title = section.querySelector('h2');
+    if (title) {
+      title.textContent = mode === 'edit' ? '✏️ Edytuj Konia' : '🐴 Dodaj Konia';
+    }
+    
+    const submitButton = section.querySelector('button[type="submit"]');
+    if (submitButton) {
+      submitButton.textContent = mode === 'edit' ? '✅ Zapisz Zmiany' : '✅ Dodaj Konia';
+    }
+  }
+}
+
+function setupFormHandler(formId, endpoint, callback) {
+  const form = document.getElementById(formId);
+  if (!form) {
+    console.error(`❌ Nie znaleziono formularza: ${formId}`);
+    return;
+  }
+  
+  console.log(`🔧 Konfigurowanie handlera dla ${formId}, endpoint: ${endpoint}`);
+  
+  // Usuń wszystkie poprzednie listenery
+  const oldHandler = form._currentHandler;
+  if (oldHandler) {
+    form.removeEventListener('submit', oldHandler);
+    console.log(`🗑️ Usunięto stary handler`);
+  }
+  
+  const newHandler = async (e) => {
+    e.preventDefault();
+    
+    const { mode, editId } = getFormMode(formId);
+    console.log(`📋 Submit formularza - tryb: ${mode}, editId: ${editId}`);
+    
+    if (!validateForm(formId)) {
+      console.log('❌ Walidacja formularza nie powiodła się');
+      return;
+    }
+
+    const formData = new FormData(form);
+    const data = Object.fromEntries(formData);
+    
+    // Konwersja pustych stringów na null dla opcjonalnych pól
+    Object.keys(data).forEach(key => {
+      if (data[key] === '') {
+        data[key] = null;
+      }
+    });
+    
+    console.log(`📤 Dane do wysłania:`, data);
+    
+    try {
+      if (mode === 'edit' && editId) {
+        // Tryb edycji - używaj PUT
+        console.log(`✏️ Edytowanie ${endpoint}/${editId}:`, data);
+        const response = await updateData(endpoint, editId, data);
+        
+        if (response && response.message) {
+          alert(response.message);
+        } else {
+          alert('Zaktualizowano pomyślnie!');
+        }
+      } else {
+        // Tryb dodawania - używaj POST
+        console.log(`➕ Dodawanie do ${endpoint}:`, data);
+        await postData(endpoint, data);
+        alert('Dodano pomyślnie!');
+      }
+      
+      resetForm(formId);
+      if (callback) callback();
+      
+      // Wróć do dashboard po operacji
+      if (formId === 'horse-form') {
+        showSection('dashboard');
+      }
+      
+    } catch (error) {
+      console.error(`❌ Błąd podczas ${mode === 'edit' ? 'edycji' : 'dodawania'}:`, error);
+      alert(`Błąd podczas ${mode === 'edit' ? 'edycji' : 'dodawania'}: ${error.message}`);
+    }
+  };
+  
+  // Zapisz referencję i dodaj nowy handler
+  form._currentHandler = newHandler;
+  form.addEventListener('submit', newHandler);
+  
+  const currentMode = getFormMode(formId);
+  console.log(`✅ Handler dla ${formId} skonfigurowany - tryb: ${currentMode.mode}, editId: ${currentMode.editId}`);
+}
+
 function resetForm(formId) {
   const form = document.getElementById(formId);
   if (!form) return;
@@ -41,18 +151,14 @@ function resetForm(formId) {
     span.textContent = '';
   });
   
-  // POPRAWKA: Reset form submission handler dla edycji koni
+  // Ustaw tryb na 'add'
+  setFormMode(formId, 'add', null);
+  
+  // Skonfiguruj handler dla trybu dodawania
   if (formId === 'horse-form') {
-    // Usuń handler edycji jeśli istnieje
-    if (form._editHandler) {
-      form.removeEventListener('submit', form._editHandler);
-      form._editHandler = null;
-    }
-    
-    // Przywróć standardowy handler dodawania
-    form.onsubmit = null;
     setupFormHandler('horse-form', 'horses', loadHorses);
     hideBreedingPreview();
+    updateFormTitle('horse-form', 'add');
   }
   
   console.log(`Reset formularza: ${formId}`);
@@ -240,18 +346,22 @@ async function fetchData(endpoint) {
   if (!endpoint) throw new Error('Endpoint nie może być pusty');
   
   try {
-    console.log(`Pobieranie danych: ${API_URL}/${endpoint}`);
-    const response = await fetch(`${API_URL}/${endpoint}`);
+    const url = `${API_URL}/${endpoint}`;
+    console.log(`🌐 Pobieranie danych: ${url}`);
+    
+    const response = await fetch(url);
     
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`❌ HTTP Error ${response.status}:`, errorText);
       throw new Error(`Błąd HTTP ${response.status}: ${response.statusText}`);
     }
     
     const data = await response.json();
-    console.log(`Pobrano dane:`, data);
+    console.log(`✅ Pobrano dane z ${endpoint}:`, data);
     return data;
   } catch (error) {
-    console.error('Błąd fetch:', error);
+    console.error(`❌ Błąd fetch dla ${endpoint}:`, error);
     throw error;
   }
 }
@@ -402,6 +512,13 @@ async function loadSelectOptions() {
       fetchData('horses')
     ]);
 
+    // NOWE: Ustaw maksymalną datę urodzenia na dzisiaj
+    const birthDateInput = document.getElementById('horse-birth-date');
+    if (birthDateInput) {
+      const today = new Date().toISOString().split('T')[0];
+      birthDateInput.setAttribute('max', today);
+    }
+
     // Kraje dla hodowców
     const breederCountrySelect = document.getElementById('breeder-country-select');
     if (breederCountrySelect) {
@@ -542,6 +659,7 @@ async function checkBreeding() {
   const damSelect = document.getElementById('horse-dam-select');
   const previewDiv = document.getElementById('breeding-preview');
   const resultDiv = document.getElementById('breeding-result');
+  const submitButton = document.querySelector('#horse-form button[type="submit"]');
   
   if (!sireSelect || !damSelect || !previewDiv || !resultDiv) return;
   
@@ -550,6 +668,12 @@ async function checkBreeding() {
   
   if (!sireId || !damId) {
     hideBreedingPreview();
+    breedingCheckResult = null;
+    // Przywróć przycisk do normalnego stanu
+    if (submitButton) {
+      submitButton.disabled = false;
+      submitButton.classList.remove('btn-disabled');
+    }
     return;
   }
   
@@ -561,6 +685,14 @@ async function checkBreeding() {
       
       // Sprawdź czy to błąd niedozwolonego krzyżowania
       if (errorData.breeding_possible === false) {
+        breedingCheckResult = { allowed: false, error: errorData.error, problems: errorData.problems };
+        
+        // ZABLOKUJ przycisk submit
+        if (submitButton) {
+          submitButton.disabled = true;
+          submitButton.classList.add('btn-disabled');
+        }
+        
         resultDiv.innerHTML = `
           <div class="breeding-error">
             <p><strong>🚫 ${errorData.error}</strong></p>
@@ -570,6 +702,7 @@ async function checkBreeding() {
               `<ul>${errorData.problems.map(p => `<li class="error">❌ ${p}</li>`).join('')}</ul>` : 
               ''
             }
+            <p class="error"><strong>⚠️ Nie można dodać konia z tymi rodzicami!</strong></p>
           </div>
         `;
         previewDiv.style.display = 'block';
@@ -580,6 +713,13 @@ async function checkBreeding() {
     }
     
     const data = await response.json();
+    breedingCheckResult = { allowed: true, data };
+    
+    // ODBLOKUJ przycisk submit
+    if (submitButton) {
+      submitButton.disabled = false;
+      submitButton.classList.remove('btn-disabled');
+    }
     
     // Określ kolor na podstawie poziomu ryzyka
     let riskColor = '#27ae60'; // zielony
@@ -613,6 +753,14 @@ async function checkBreeding() {
     
   } catch (error) {
     console.error('Błąd sprawdzania krzyżowania:', error);
+    breedingCheckResult = { allowed: false, error: error.message };
+    
+    // ZABLOKUJ przycisk w przypadku błędu
+    if (submitButton) {
+      submitButton.disabled = true;
+      submitButton.classList.add('btn-disabled');
+    }
+    
     resultDiv.innerHTML = `<p class="error">Błąd: ${error.message}</p>`;
     previewDiv.style.display = 'block';
   }
@@ -620,9 +768,19 @@ async function checkBreeding() {
 
 function hideBreedingPreview() {
   const previewDiv = document.getElementById('breeding-preview');
+  const submitButton = document.querySelector('#horse-form button[type="submit"]');
+  
   if (previewDiv) {
     previewDiv.style.display = 'none';
   }
+  
+  // Przywróć przycisk do normalnego stanu
+  if (submitButton) {
+    submitButton.disabled = false;
+    submitButton.classList.remove('btn-disabled');
+  }
+  
+  breedingCheckResult = null;
 }
 
 // =====================================
@@ -648,41 +806,33 @@ function validateForm(formId) {
     }
   });
 
-  return isValid;
-}
-
-function setupFormHandler(formId, endpoint, callback) {
-  const form = document.getElementById(formId);
-  if (!form) return;
-  
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    
-    if (!validateForm(formId)) {
-      console.log('Walidacja formularza nie powiodła się');
-      return;
-    }
-
-    const formData = new FormData(form);
-    const data = Object.fromEntries(formData);
-    
-    // Konwersja pustych stringów na null dla opcjonalnych pól
-    Object.keys(data).forEach(key => {
-      if (data[key] === '') {
-        data[key] = null;
+  // NOWA WALIDACJA: Sprawdź datę urodzenia
+  if (formId === 'horse-form') {
+    const birthDateInput = document.getElementById('horse-birth-date');
+    if (birthDateInput && birthDateInput.value) {
+      const birthDate = new Date(birthDateInput.value);
+      const today = new Date();
+      today.setHours(23, 59, 59, 999); // Koniec dnia
+      
+      if (birthDate > today) {
+        const errorSpan = birthDateInput.parentElement.querySelector('.error-message');
+        if (errorSpan) {
+          errorSpan.textContent = 'Data urodzenia nie może być w przyszłości.';
+        }
+        isValid = false;
       }
-    });
-    
-    try {
-      await postData(endpoint, data);
-      alert('Dodano pomyślnie!');
-      resetForm(formId);
-      if (callback) callback();
-    } catch (error) {
-      console.error('Błąd podczas dodawania:', error);
-      alert('Błąd podczas dodawania: ' + error.message);
     }
-  });
+  }
+
+  // WALIDACJA: Sprawdź krzyżowanie dla formularza koni
+  if (formId === 'horse-form' && breedingCheckResult) {
+    if (breedingCheckResult.allowed === false) {
+      alert(`🚫 Nie można dodać konia!\n\n${breedingCheckResult.error}\n\n${breedingCheckResult.problems ? breedingCheckResult.problems.join('\n') : ''}`);
+      isValid = false;
+    }
+  }
+
+  return isValid;
 }
 
 // =====================================
@@ -691,72 +841,77 @@ function setupFormHandler(formId, endpoint, callback) {
 
 async function editHorse(id) {
   try {
-    console.log(`Edycja konia ID: ${id}`);
-    const horse = await fetchData(`horses/${id}`);
+    console.log(`🔧 Rozpoczynam edycję konia ID: ${id}`);
     
+    if (!id || isNaN(id)) {
+      throw new Error('Nieprawidłowe ID konia');
+    }
+    
+    console.log(`📡 Pobieranie danych konia ${id}...`);
+    const horse = await fetchData(`horses/${id}`);
+    console.log(`📦 Otrzymane dane konia:`, horse);
+    
+    if (!horse) {
+      throw new Error('Nie znaleziono konia o podanym ID');
+    }
+    
+    console.log(`📄 Przełączam na sekcję add-horse...`);
     showSection('add-horse');
     
+    // POPRAWKA: Najpierw ustaw tryb edycji
+    console.log(`⚙️ Ustawiam formularz w tryb edycji...`);
+    setFormMode('horse-form', 'edit', id);
+    console.log(`✅ Tryb formularza:`, getFormMode('horse-form'));
+    
+    // POTEM skonfiguruj handler
+    console.log(`🔧 Konfiguruje handler dla edycji...`);
+    setupFormHandler('horse-form', 'horses', loadHorses);
+    
+    // POTEM wypełnij formularz
     const form = document.getElementById('horse-form');
-    if (!form) return;
+    if (!form) {
+      throw new Error('Nie znaleziono formularza horse-form');
+    }
     
+    console.log(`📝 Wypełniam formularz danymi konia...`);
     // Wypełnij formularz danymi konia
-    if (form.name) form.name.value = horse.name || '';
-    if (form.breed_id) form.breed_id.value = horse.breed_id || '';
-    if (form.birth_date) form.birth_date.value = horse.birth_date ? horse.birth_date.split('T')[0] : '';
-    if (form.gender) form.gender.value = horse.gender || '';
-    if (form.sire_id) form.sire_id.value = horse.sire_id || '';
-    if (form.dam_id) form.dam_id.value = horse.dam_id || '';
-    if (form.color_id) form.color_id.value = horse.color_id || '';
-    if (form.breeder_id) form.breeder_id.value = horse.breeder_id || '';
+    const nameInput = form.querySelector('[name="name"]');
+    if (nameInput) nameInput.value = horse.name || '';
+    
+    const breedInput = form.querySelector('[name="breed_id"]'); 
+    if (breedInput) breedInput.value = horse.breed_id || '';
+    
+    const birthDateInput = form.querySelector('[name="birth_date"]');
+    if (birthDateInput) birthDateInput.value = horse.birth_date ? horse.birth_date.split('T')[0] : '';
+    
+    const genderInput = form.querySelector('[name="gender"]');
+    if (genderInput) genderInput.value = horse.gender || '';
+    
+    const sireInput = form.querySelector('[name="sire_id"]');
+    if (sireInput) sireInput.value = horse.sire_id || '';
+    
+    const damInput = form.querySelector('[name="dam_id"]');
+    if (damInput) damInput.value = horse.dam_id || '';
+    
+    const colorInput = form.querySelector('[name="color_id"]');
+    if (colorInput) colorInput.value = horse.color_id || '';
+    
+    const breederInput = form.querySelector('[name="breeder_id"]');
+    if (breederInput) breederInput.value = horse.breeder_id || '';
 
-    // POPRAWKA: Usuń stary handler i ustaw nowy
-    form.removeEventListener('submit', form._editHandler);
+    // NA KOŃCU zaktualizuj tytuł
+    updateFormTitle('horse-form', 'edit');
     
-    // Stwórz nowy handler dla edycji
-    const editHandler = async (e) => {
-      e.preventDefault();
-      
-      if (!validateForm('horse-form')) return;
-      
-      const formData = new FormData(form);
-      const data = Object.fromEntries(formData);
-      
-      // Konwersja pustych stringów na null
-      Object.keys(data).forEach(key => {
-        if (data[key] === '') {
-          data[key] = null;
-        }
-      });
-      
-      try {
-        const response = await updateData('horses', id, data);
-        
-        // POPRAWKA: Sprawdź czy response ma message
-        if (response && response.message) {
-          alert(response.message);
-        } else {
-          alert('Zaktualizowano pomyślnie!');
-        }
-        
-        resetForm('horse-form');
-        showSection('dashboard');
-        loadHorses();
-      } catch (error) {
-        console.error('Błąd podczas edycji:', error);
-        alert('Błąd podczas edycji: ' + error.message);
-      }
-    };
-    
-    // Zapisz referencję i dodaj handler
-    form._editHandler = editHandler;
-    form.addEventListener('submit', editHandler);
-    
+    console.log(`🧬 Sprawdzam krzyżowanie...`);
     // Sprawdź krzyżowanie po załadowaniu danych
-    setTimeout(checkBreeding, 100);
+    setTimeout(checkBreeding, 200);
     
-    console.log('Formularz edycji przygotowany');
+    console.log(`✅ Formularz edycji przygotowany pomyślnie`);
+    console.log(`📋 Finalny tryb formularza:`, getFormMode('horse-form'));
+    
   } catch (error) {
-    console.error('Błąd podczas ładowania danych konia:', error);
+    console.error('❌ Błąd podczas ładowania danych konia:', error);
+    console.error('Stack trace:', error.stack);
     alert('Błąd podczas ładowania danych konia: ' + error.message);
   }
 }
@@ -801,10 +956,10 @@ async function fetchPedigreeHtml() {
   const depthInput = document.getElementById('pedigree-depth');
   if (!depthInput) return;
   
-  const depth = depthInput.value;
+  const depth = parseInt(depthInput.value);
   
-  if (depth < 1 || depth > 5) {
-    alert('Głębokość musi być między 1 a 5.');
+  if (depth < 0 || depth > 5) {
+    alert('Głębokość musi być między 0 a 5.');
     return;
   }
   
@@ -1055,11 +1210,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     await loadSelectOptions();
     await loadHorses();
     
-    // 9. Skonfiguruj handlery formularzy
+    // 9. Skonfiguruj handlery formularzy - NOWY SYSTEM
     setupFormHandler('country-form', 'countries', loadSelectOptions);
     setupFormHandler('breeder-form', 'breeders', loadSelectOptions);
     setupFormHandler('horse-form', 'horses', loadHorses);
     setupFormHandler('color-form', 'colors', loadSelectOptions);
+    
+    // Ustaw wszystkie formularze w tryb dodawania
+    setFormMode('country-form', 'add');
+    setFormMode('breeder-form', 'add');
+    setFormMode('horse-form', 'add');
+    setFormMode('color-form', 'add');
     
     console.log('✅ Aplikacja zainicjalizowana pomyślnie!');
   } catch (error) {
@@ -1073,6 +1234,9 @@ if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     showSection,
     resetForm,
+    setFormMode,
+    getFormMode,
+    updateFormTitle,
     fetchData,
     postData,
     updateData,
@@ -1083,6 +1247,7 @@ if (typeof module !== 'undefined' && module.exports) {
     deleteHorse,
     showPedigree,
     showOffspring,
-    checkBreeding
+    checkBreeding,
+    hideBreedingPreview
   };
 }
