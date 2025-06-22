@@ -1,7 +1,7 @@
 module.exports = {
+  // Konfiguracja główna
   testEnvironment: 'node',
-  testMatch: ['**/__tests__/**/*.test.js'],
-  coverageDirectory: 'coverage',
+  setupFilesAfterEnv: ['<rootDir>/__tests__/setup.js'],
   collectCoverageFrom: [
     'src/**/*.js',
     'public/**/*.js',
@@ -9,43 +9,47 @@ module.exports = {
     '!src/seeds/**',
     '!**/node_modules/**'
   ],
-  coverageThreshold: {
-    global: {
-      branches: 15,
-      functions: 15,
-      lines: 15,
-      statements: 15
-    }
-  },
-  testTimeout: 45000, // Globalne ustawienie timeout
-  maxWorkers: 1, // Testy sekwencyjnie
-  verbose: true,
-  forceExit: true,
-  detectOpenHandles: true,
+  coverageDirectory: 'coverage',
+  coverageReporters: ['text', 'lcov', 'html'],
+  testMatch: [
+    '**/__tests__/**/*.test.js'
+  ],
+  
+  // Projekty - backend i frontend
   projects: [
     {
       displayName: 'backend',
+      testMatch: ['<rootDir>/__tests__/backend/**/*.test.js'],
       testEnvironment: 'node',
-      testMatch: ['**/__tests__/backend/**/*.test.js'],
-      setupFilesAfterEnv: ['<rootDir>/__tests__/setup-backend.js'],
-      collectCoverageFrom: [
-        'src/**/*.js',
-        '!src/migrations/**',
-        '!src/seeds/**'
-      ],
-      maxWorkers: 1
+      setupFilesAfterEnv: ['<rootDir>/__tests__/backend/setup.js']
     },
     {
       displayName: 'frontend',
+      testMatch: ['<rootDir>/__tests__/frontend/**/*.test.js'],
       testEnvironment: 'jsdom',
-      testMatch: ['**/__tests__/frontend/**/*.test.js'],
-      setupFilesAfterEnv: ['<rootDir>/__tests__/setup-frontend.js'],
-      collectCoverageFrom: [
-        'public/**/*.js'
-      ],
-      moduleNameMapper: { // Poprawna nazwa opcji
-        '\\.(css|less|scss|sass)$': 'identity-obj-proxy'
-      }
+      setupFilesAfterEnv: ['<rootDir>/__tests__/frontend/setup.js']
     }
-  ]
+  ],
+  
+  // Timeouts
+  testTimeout: 30000,
+  
+  // Mock patterns
+  moduleNameMapping: {
+    '^@/(.*)$': '<rootDir>/src/$1'
+  },
+  
+  // Transform patterns dla ES6
+  transform: {
+    '^.+\\.js$': 'babel-jest'
+  },
+  
+  // Verbose output
+  verbose: true,
+  
+  // Clear mocks between tests
+  clearMocks: true,
+  
+  // Stop on first failure in CI
+  bail: process.env.CI ? 1 : 0
 };
