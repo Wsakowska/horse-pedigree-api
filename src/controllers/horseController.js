@@ -84,7 +84,7 @@ exports.createHorse = async (req, res) => {
         return res.status(400).json({ error: 'Ojciec o podanym ID nie istnieje' });
       }
       if (sire.gender !== 'ogier') {
-        return res.status(400).json({ error: 'Ojciec musi być ogierem' });
+        return res.status(400).json({ error: 'Ojciec musi być ogierem (wałach nie może mieć potomstwa)' });
       }
     }
     
@@ -94,7 +94,7 @@ exports.createHorse = async (req, res) => {
         return res.status(400).json({ error: 'Matka o podanym ID nie istnieje' });
       }
       if (dam.gender !== 'klacz') {
-        return res.status(400).json({ error: 'Matka musi być klaczą' });
+        return res.status(400).json({ error: 'Matka musi być klaczą (wałach nie może mieć potomstwa)' });
       }
     }
 
@@ -405,17 +405,51 @@ exports.checkBreeding = async (req, res) => {
     }
 
     if (sire.gender !== 'ogier') {
-      return res.status(400).json({ error: 'Ojciec musi być ogierem' });
+      return res.status(400).json({ error: 'Ojciec musi być ogierem (wałach nie może mieć potomstwa)' });
     }
 
     if (dam.gender !== 'klacz') {
-      return res.status(400).json({ error: 'Matka musi być klaczą' });
+      return res.status(400).json({ error: 'Matka musi być klaczą (wałach nie może mieć potomstwa)' });
+    }
+
+    // NOWE: Sprawdź niedozwolone relacje rodzic-dziecko
+    let breedingProblems = [];
+    
+    // Sprawdź czy ojciec jest synem matki (matka + syn)
+    if (sire.dam_id && parseInt(sire.dam_id) === parseInt(dam_id)) {
+      breedingProblems.push('Matka nie może mieć potomstwa ze swoim synem');
+    }
+    
+    // Sprawdź czy matka jest córką ojca (ojciec + córka)
+    if (dam.sire_id && parseInt(dam.sire_id) === parseInt(sire_id)) {
+      breedingProblems.push('Ojciec nie może mieć potomstwa ze swoją córką');
+    }
+    
+    // Jeśli są poważne problemy, zwróć błąd
+    if (breedingProblems.length > 0) {
+      return res.status(400).json({
+        breeding_possible: false,
+        error: 'Niedozwolone krzyżowanie',
+        problems: breedingProblems,
+        sire: { id: sire.id, name: sire.name },
+        dam: { id: dam.id, name: dam.name }
+      });
+    }
+
+    // Sprawdź czy są rodzeństwem
+    let isInbreeding = false;
+    let inbreedingType = '';
+    
+    if ((sire.sire_id && dam.sire_id && parseInt(sire.sire_id) === parseInt(dam.sire_id)) ||
+        (sire.dam_id && dam.dam_id && parseInt(sire.dam_id) === parseInt(dam.dam_id))) {
+      isInbreeding = true;
+      inbreedingType = 'rodzeństwo (ten sam ojciec lub matka)';
     }
 
     // Oblicz potencjalną rasę potomstwa
     const predictedBreed = await calculateBreed(knex, sire_id, dam_id);
     
-    // Sprawdź stopień pokrewieństwa (czy mają wspólnych przodków w 3 generacjach)
+    // Sprawdź stopień pokrewieństwa w szerszym rodowodzie (3 generacje)
     const siresPedigree = await getPedigree(knex, parseInt(sire_id), 3);
     const damsPedigree = await getPedigree(knex, parseInt(dam_id), 3);
     
@@ -438,14 +472,29 @@ exports.checkBreeding = async (req, res) => {
     // Znajdź wspólnych przodków
     const commonAncestors = [...sireAncestors].filter(id => damAncestors.has(id));
 
+    // Stwórz rekomendację
+    let recommendation = '';
+    let riskLevel = 'low';
+    
+    if (isInbreeding) {
+      recommendation = `⚠️ WYSOKIE RYZYKO: Krzyżowanie ${inbreedingType}. Może prowadzić do problemów genetycznych.`;
+      riskLevel = 'high';
+    } else if (commonAncestors.length > 0) {
+      recommendation = `⚠️ ŚREDNIE RYZYKO: Wykryto wspólnych przodków. Umiarkowane pokrewieństwo.`;
+      riskLevel = 'medium';
+    } else {
+      recommendation = `✅ NISKIE RYZYKO: Brak bliskiego pokrewieństwa. Krzyżowanie zalecane.`;
+      riskLevel = 'low';
+    }
+
     res.json({
       breeding_possible: true,
       predicted_breed: predictedBreed,
-      inbreeding_detected: commonAncestors.length > 0,
+      risk_level: riskLevel,
+      inbreeding_detected: isInbreeding || commonAncestors.length > 0,
+      inbreeding_type: inbreedingType || (commonAncestors.length > 0 ? 'dalsza rodzina' : 'brak'),
       common_ancestors: commonAncestors,
-      recommendation: commonAncestors.length > 0 
-        ? 'Uwaga: Wykryto pokrewieństwo. Rozważ inne krzyżowanie.' 
-        : 'Krzyżowanie zalecane - brak bliskiego pokrewieństwa.',
+      recommendation,
       sire: { id: sire.id, name: sire.name, breed: sire.breed_id },
       dam: { id: dam.id, name: dam.name, breed: dam.breed_id }
     });

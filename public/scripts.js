@@ -41,8 +41,15 @@ function resetForm(formId) {
     span.textContent = '';
   });
   
-  // Reset form submission handler dla edycji koni
+  // POPRAWKA: Reset form submission handler dla edycji koni
   if (formId === 'horse-form') {
+    // Usuń handler edycji jeśli istnieje
+    if (form._editHandler) {
+      form.removeEventListener('submit', form._editHandler);
+      form._editHandler = null;
+    }
+    
+    // Przywróć standardowy handler dodawania
     form.onsubmit = null;
     setupFormHandler('horse-form', 'horses', loadHorses);
     hideBreedingPreview();
@@ -479,12 +486,12 @@ function updateHorseSelects(horses, sireFilter = '', damFilter = '') {
   if (sireSelect) {
     sireSelect.innerHTML = '<option value="">Brak</option>';
     horses
-      .filter(horse => horse.gender === 'ogier' && 
+      .filter(horse => horse.gender === 'ogier' && // TYLKO ogiery mogą być ojcami
                       (!sireFilter || horse.name.toLowerCase().includes(sireFilter.toLowerCase())))
       .forEach(horse => {
         const option = document.createElement('option');
         option.value = horse.id;
-        option.textContent = horse.name;
+        option.textContent = `${horse.name} (${horse.gender})`;
         sireSelect.appendChild(option);
       });
   }
@@ -492,12 +499,12 @@ function updateHorseSelects(horses, sireFilter = '', damFilter = '') {
   if (damSelect) {
     damSelect.innerHTML = '<option value="">Brak</option>';
     horses
-      .filter(horse => horse.gender === 'klacz' && 
+      .filter(horse => horse.gender === 'klacz' && // TYLKO klacze mogą być matkami
                       (!damFilter || horse.name.toLowerCase().includes(damFilter.toLowerCase())))
       .forEach(horse => {
         const option = document.createElement('option');
         option.value = horse.id;
-        option.textContent = horse.name;
+        option.textContent = `${horse.name} (${horse.gender})`;
         damSelect.appendChild(option);
       });
   }
@@ -551,20 +558,54 @@ async function checkBreeding() {
     
     if (!response.ok) {
       const errorData = await response.json();
+      
+      // Sprawdź czy to błąd niedozwolonego krzyżowania
+      if (errorData.breeding_possible === false) {
+        resultDiv.innerHTML = `
+          <div class="breeding-error">
+            <p><strong>🚫 ${errorData.error}</strong></p>
+            <p><strong>Ojciec:</strong> ${errorData.sire.name}</p>
+            <p><strong>Matka:</strong> ${errorData.dam.name}</p>
+            ${errorData.problems ? 
+              `<ul>${errorData.problems.map(p => `<li class="error">❌ ${p}</li>`).join('')}</ul>` : 
+              ''
+            }
+          </div>
+        `;
+        previewDiv.style.display = 'block';
+        return;
+      }
+      
       throw new Error(errorData.error);
     }
     
     const data = await response.json();
+    
+    // Określ kolor na podstawie poziomu ryzyka
+    let riskColor = '#27ae60'; // zielony
+    let riskIcon = '✅';
+    
+    if (data.risk_level === 'high') {
+      riskColor = '#e74c3c'; // czerwony
+      riskIcon = '🚫';
+    } else if (data.risk_level === 'medium') {
+      riskColor = '#f39c12'; // pomarańczowy
+      riskIcon = '⚠️';
+    }
     
     resultDiv.innerHTML = `
       <div class="breeding-info">
         <p><strong>Ojciec:</strong> ${data.sire.name}</p>
         <p><strong>Matka:</strong> ${data.dam.name}</p>
         <p><strong>Przewidywana rasa potomstwa:</strong> <span class="breed-highlight">${data.predicted_breed}</span></p>
-        ${data.inbreeding_detected ? 
-          `<p class="warning">⚠️ ${data.recommendation}</p>` : 
-          `<p class="success">✅ ${data.recommendation}</p>`
-        }
+        <div class="risk-assessment" style="border-left: 4px solid ${riskColor}; padding-left: 10px; margin: 10px 0;">
+          <p><strong>Ocena ryzyka:</strong> <span style="color: ${riskColor};">${data.risk_level.toUpperCase()}</span></p>
+          ${data.inbreeding_detected ? 
+            `<p><strong>Typ pokrewieństwa:</strong> ${data.inbreeding_type}</p>` : 
+            ''
+          }
+          <p style="color: ${riskColor}; font-weight: bold;">${riskIcon} ${data.recommendation}</p>
+        </div>
       </div>
     `;
     
@@ -668,8 +709,11 @@ async function editHorse(id) {
     if (form.color_id) form.color_id.value = horse.color_id || '';
     if (form.breeder_id) form.breeder_id.value = horse.breeder_id || '';
 
-    // Ustaw handler dla aktualizacji
-    form.onsubmit = async (e) => {
+    // POPRAWKA: Usuń stary handler i ustaw nowy
+    form.removeEventListener('submit', form._editHandler);
+    
+    // Stwórz nowy handler dla edycji
+    const editHandler = async (e) => {
       e.preventDefault();
       
       if (!validateForm('horse-form')) return;
@@ -685,8 +729,15 @@ async function editHorse(id) {
       });
       
       try {
-        await updateData('horses', id, data);
-        alert('Zaktualizowano pomyślnie!');
+        const response = await updateData('horses', id, data);
+        
+        // POPRAWKA: Sprawdź czy response ma message
+        if (response && response.message) {
+          alert(response.message);
+        } else {
+          alert('Zaktualizowano pomyślnie!');
+        }
+        
         resetForm('horse-form');
         showSection('dashboard');
         loadHorses();
@@ -695,6 +746,10 @@ async function editHorse(id) {
         alert('Błąd podczas edycji: ' + error.message);
       }
     };
+    
+    // Zapisz referencję i dodaj handler
+    form._editHandler = editHandler;
+    form.addEventListener('submit', editHandler);
     
     // Sprawdź krzyżowanie po załadowaniu danych
     setTimeout(checkBreeding, 100);
