@@ -1,12 +1,15 @@
 exports.seed = async function (knex) {
-  // Nie usuwaj innych tabel tutaj - tylko colors
+  // Usuń istniejące dane
   await knex('colors').del();
   
+  // Wstaw nowe dane BEZ podawania ID
   await knex('colors').insert([
-    { id: 1, name: 'Gniada' },
-    { id: 2, name: 'Kara' },
-    { id: 3, name: 'Siwa' },
-    { id: 4, name: 'Kasztanowata' },
-    { id: 5, name: 'Izabelowata' },
+    { name: 'Gniada' },
+    { name: 'Kara' },
+    { name: 'Siwa' },
+    { name: 'Kasztanowata' },
+    { name: 'Izabelowata' },
   ]);
+  
+  console.log('Colors seeded successfully');
 };

@@ -2,9 +2,10 @@ const knex = require('../config/db');
 const Joi = require('joi');
 const { calculateBreed, getPedigree, getOffspring, generatePedigreeHtml, checkCyclicRelations } = require('../services/pedigreeService');
 
+// POPRAWIONA walidacja - breed_id jest opcjonalne
 const horseSchema = Joi.object({
   name: Joi.string().max(100).required(),
-  breed_id: Joi.number().integer().required(),
+  breed_id: Joi.number().integer().optional().allow(null), // ZMIANA: opcjonalne
   birth_date: Joi.date().optional().allow(null),
   gender: Joi.string().valid('klacz', 'ogier', 'wałach').required(),
   sire_id: Joi.number().integer().optional().allow(null),
@@ -37,7 +38,6 @@ exports.getAllHorses = async (req, res) => {
     
     let query = knex('horses');
     
-    // POPRAWKA: Dodaj filtry PRZED select
     if (gender && ['klacz', 'ogier', 'wałach'].includes(gender)) {
       query = query.where({ gender });
     }
@@ -109,28 +109,11 @@ exports.createHorse = async (req, res) => {
       return res.status(409).json({ error: 'Koń o takiej nazwie już istnieje' });
     }
 
-    // Sprawdź czy rodzice są z odpowiednich ras (dodatkowa walidacja)
-    if (sire_id && dam_id) {
-      const sireBreed = await knex('horses')
-        .join('breeds', 'horses.breed_id', 'breeds.id')
-        .where('horses.id', sire_id)
-        .select('breeds.name')
-        .first();
-      
-      const damBreed = await knex('horses')
-        .join('breeds', 'horses.breed_id', 'breeds.id')
-        .where('horses.id', dam_id)
-        .select('breeds.name')
-        .first();
-
-      if (!sireBreed || !damBreed) {
-        return res.status(400).json({ error: 'Nie można ustalić rasy rodziców' });
-      }
-    }
-
-    // Oblicz rasę jeśli są rodzice
+    // ZMIANA: Automatyczne obliczanie rasy lub użycie domyślnej
     let finalBreedId = breed_id;
+    
     if (sire_id && dam_id) {
+      // Jeśli są rodzice - oblicz automatycznie
       const calculatedBreed = await calculateBreed(knex, sire_id, dam_id);
       if (calculatedBreed) {
         const breed = await knex('breeds').where({ name: calculatedBreed }).first();
@@ -139,6 +122,18 @@ exports.createHorse = async (req, res) => {
           console.log(`Automatycznie obliczona rasa: ${calculatedBreed} (ID: ${breed.id})`);
         }
       }
+    } else if (!finalBreedId) {
+      // Jeśli nie ma rodziców ani wybranej rasy - użyj domyślnej (oo)
+      const defaultBreed = await knex('breeds').where({ name: 'oo' }).first();
+      if (defaultBreed) {
+        finalBreedId = defaultBreed.id;
+        console.log(`Użyto domyślnej rasy: oo (ID: ${defaultBreed.id})`);
+      }
+    }
+
+    // Sprawdź czy finalBreedId jest prawidłowe
+    if (!finalBreedId) {
+      return res.status(400).json({ error: 'Nie można ustalić rasy konia' });
     }
 
     const [horse] = await knex('horses')
@@ -155,7 +150,7 @@ exports.updateHorse = async (req, res) => {
   const { error } = horseSchema.validate(req.body);
   if (error) return res.status(400).json({ error: error.details[0].message });
 
-  const { sire_id, dam_id, name } = req.body;
+  const { sire_id, dam_id, name, breed_id } = req.body;
   const horseId = req.params.id;
 
   try {
@@ -208,7 +203,7 @@ exports.updateHorse = async (req, res) => {
       return res.status(400).json({ error: 'Ojciec i matka nie mogą być tym samym koniem' });
     }
 
-    // NOWE: Sprawdź cykliczne relacje
+    // Sprawdź cykliczne relacje
     const hasCycle = await checkCyclicRelations(knex, horseId, sire_id, dam_id);
     if (hasCycle) {
       return res.status(400).json({ 
@@ -216,7 +211,7 @@ exports.updateHorse = async (req, res) => {
       });
     }
 
-    // Oblicz nową rasę jeśli są rodzice
+    // ZMIANA: Oblicz nową rasę jeśli są rodzice, w przeciwnym razie zachowaj wybraną
     let updateData = { ...req.body };
     if (sire_id && dam_id) {
       const calculatedBreed = await calculateBreed(knex, sire_id, dam_id);
@@ -388,7 +383,7 @@ exports.getPedigreeHtml = async (req, res) => {
   }
 };
 
-// NOWY endpoint: Sprawdzanie możliwości krzyżowania
+// Sprawdzanie możliwości krzyżowania
 exports.checkBreeding = async (req, res) => {
   const { sire_id, dam_id } = req.query;
   

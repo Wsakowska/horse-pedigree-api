@@ -13,215 +13,453 @@
       <h1>🐎 Baza Rodowodowa Koni</h1>
       <nav>
         <ul>
-          <li><button onclick="showSection('dashboard')" type="button">📊 Panel Główny</button></li>
-          <li><button onclick="showSection('add-country')" type="button">🌍 Dodaj Kraj</button></li>
-          <li><button onclick="showSection('add-breeder')" type="button">🏠 Dodaj Hodowcę</button></li>
-          <li><button onclick="showSection('add-horse')" type="button">🐴 Dodaj Konia</button></li>
-          <li><button onclick="showSection('add-color')" type="button">🎨 Dodaj Maść</button></li>
-          <li><button onclick="showSection('add-breed')" type="button">🧬 Dodaj Rasę</button></li>
+          <li><button type="button" data-section="dashboard">📊 Panel Główny</button></li>
+          <li><button type="button" data-section="view-data">📋 Przeglądaj Dane</button></li>
+          <li><button type="button" data-section="add-country">🌍 Dodaj Kraj</button></li>
+          <li><button type="button" data-section="add-breeder">🏠 Dodaj Hodowcę</button></li>
+          <li><button type="button" data-section="add-horse">🐴 Dodaj Konia</button></li>
+          <li><button type="button" data-section="add-color">🎨 Dodaj Maść</button></li>
         </ul>
       </nav>
     </aside>
 
     <main>
+      <!-- PANEL GŁÓWNY -->
       <section id="dashboard" class="active">
-        <h2> Panel Główny</h2>
+        <h2>📊 Panel Główny</h2>
         <div class="dashboard-controls">
-          <input type="text" id="search-horses" placeholder="🔍 Wyszukaj konia po nazwie...">
+          <input type="text" id="search-horses" placeholder="🔍 Wyszukaj konia po nazwie..." autocomplete="off">
           <select id="sort-horses">
-            <option value="name-asc">Nazwa (A-Z)</option>
-            <option value="name-desc">Nazwa (Z-A)</option>
-            <option value="birth_date-asc">Data urodzenia (rosnąco)</option>
-            <option value="birth_date-desc">Data urodzenia (malejąco)</option>
+            <option value="name-asc">📝 Nazwa (A-Z)</option>
+            <option value="name-desc">📝 Nazwa (Z-A)</option>
+            <option value="birth_date-asc">📅 Data urodzenia (rosnąco)</option>
+            <option value="birth_date-desc">📅 Data urodzenia (malejąco)</option>
           </select>
         </div>
         <div id="horse-list" class="horse-grid">
-          <div class="loading">Ładowanie koni</div>
+          <div class="loading">Ładowanie koni...</div>
         </div>
       </section>
 
+      <!-- PRZEGLĄDAJ DANE -->
+      <section id="view-data" class="hidden">
+        <h2>📋 Przeglądaj Dane w Bazie</h2>
+        
+        <div class="data-tabs">
+          <button class="tab-button active" data-tab="countries">🌍 Kraje</button>
+          <button class="tab-button" data-tab="breeders">🏠 Hodowcy</button>
+          <button class="tab-button" data-tab="breeds">🧬 Rasy</button>
+          <button class="tab-button" data-tab="colors">🎨 Maści</button>
+        </div>
+
+        <div class="tab-content">
+          <!-- Kraje -->
+          <div id="countries-tab" class="tab-pane active">
+            <h3>🌍 Kraje w systemie</h3>
+            <div id="countries-list" class="data-list">
+              <div class="loading">Ładowanie krajów...</div>
+            </div>
+          </div>
+
+          <!-- Hodowcy -->
+          <div id="breeders-tab" class="tab-pane hidden">
+            <h3>🏠 Hodowcy w systemie</h3>
+            <div id="breeders-list" class="data-list">
+              <div class="loading">Ładowanie hodowców...</div>
+            </div>
+          </div>
+
+          <!-- Rasy -->
+          <div id="breeds-tab" class="tab-pane hidden">
+            <h3>🧬 Rasy koni</h3>
+            <div class="breed-info">
+              <p><strong>System automatycznie oblicza rasę potomstwa na podstawie rodziców:</strong></p>
+              <div class="breed-rules">
+                <div class="rule">oo + oo → oo</div>
+                <div class="rule">oo + xo → xo</div>
+                <div class="rule">oo + xx → xxoo</div>
+                <div class="rule">xx + xx → xx</div>
+                <div class="rule">xx + xo → xo</div>
+                <div class="rule">xx + xxoo → xxoo</div>
+                <div class="rule">oo + xxoo → xxoo</div>
+              </div>
+            </div>
+            <div id="breeds-list" class="data-list">
+              <div class="loading">Ładowanie ras...</div>
+            </div>
+          </div>
+
+          <!-- Maści -->
+          <div id="colors-tab" class="tab-pane hidden">
+            <h3>🎨 Maści koni</h3>
+            <div id="colors-list" class="data-list">
+              <div class="loading">Ładowanie maści...</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- DODAJ KRAJ -->
       <section id="add-country" class="hidden">
-        <h2> Dodaj Kraj</h2>
-        <form id="country-form">
+        <h2>🌍 Dodaj Kraj</h2>
+        <form id="country-form" class="form-container">
           <div class="form-group">
             <label for="country-code">Kod ISO (2 litery):</label>
-            <input type="text" id="country-code" name="code" maxlength="2" pattern="[A-Z]{2}" required placeholder="np. PL, DE, US">
+            <input type="text" id="country-code" name="code" maxlength="2" pattern="[A-Z]{2}" 
+                   placeholder="np. PL, DE, US" required autocomplete="off">
             <span class="error-message"></span>
           </div>
           <div class="form-group">
             <label for="country-name">Nazwa:</label>
-            <input type="text" id="country-name" name="name" maxlength="100" required placeholder="np. Polska">
+            <input type="text" id="country-name" name="name" maxlength="100" 
+                   placeholder="np. Polska, Niemcy" required autocomplete="off">
             <span class="error-message"></span>
           </div>
           <div class="form-buttons">
-            <button type="submit">✅ Dodaj</button>
-            <button type="button" onclick="resetForm('country-form')">❌ Anuluj</button>
+            <button type="submit" class="btn-primary">✅ Dodaj Kraj</button>
+            <button type="button" class="btn-secondary" onclick="resetForm('country-form')">❌ Anuluj</button>
           </div>
         </form>
       </section>
 
+      <!-- DODAJ HODOWCĘ -->
       <section id="add-breeder" class="hidden">
-        <h2> Dodaj Hodowcę</h2>
-        <form id="breeder-form">
+        <h2>🏠 Dodaj Hodowcę</h2>
+        <form id="breeder-form" class="form-container">
           <div class="form-group">
             <label for="breeder-name">Nazwa:</label>
-            <input type="text" id="breeder-name" name="name" maxlength="100" required placeholder="np. Hodowla Krakowska">
+            <input type="text" id="breeder-name" name="name" maxlength="100" 
+                   placeholder="np. Hodowla Krakowska" required autocomplete="off">
             <span class="error-message"></span>
           </div>
           <div class="form-group">
-            <label for="breeder-country">Kraj:</label>
+            <label for="breeder-country-select">Kraj:</label>
             <select id="breeder-country-select" name="country_code" required>
-              <option value="">Wybierz kraj</option>
+              <option value="">Wybierz kraj...</option>
             </select>
             <span class="error-message"></span>
           </div>
           <div class="form-buttons">
-            <button type="submit">✅ Dodaj</button>
-            <button type="button" onclick="resetForm('breeder-form')">❌ Anuluj</button>
+            <button type="submit" class="btn-primary">✅ Dodaj Hodowcę</button>
+            <button type="button" class="btn-secondary" onclick="resetForm('breeder-form')">❌ Anuluj</button>
           </div>
         </form>
       </section>
 
+      <!-- DODAJ KONIA -->
       <section id="add-horse" class="hidden">
-        <h2> Dodaj Konia</h2>
-        <form id="horse-form">
-          <div class="form-group">
-            <label for="horse-name">Imię:</label>
-            <input type="text" id="horse-name" name="name" maxlength="100" required placeholder="np. Bucefał">
-            <span class="error-message"></span>
-          </div>
-          <div class="form-group">
-            <label for="horse-breed">Rasa:</label>
-            <select id="horse-breed-select" name="breed_id" required>
-              <option value="">Wybierz rasę</option>
-            </select>
-            <span class="error-message"></span>
-          </div>
-          <div class="form-group">
-            <label for="horse-birth-date">Data urodzenia:</label>
-            <input type="date" id="horse-birth-date" name="birth_date">
-            <span class="error-message"></span>
-          </div>
-          <div class="form-group">
-            <label for="horse-gender">Płeć:</label>
-            <select id="horse-gender" name="gender" required>
-              <option value="">Wybierz płeć</option>
-              <option value="klacz">Klacz</option>
-              <option value="ogier">Ogier</option>
-              <option value="wałach">Wałach</option>
-            </select>
-            <span class="error-message"></span>
-          </div>
-          <div class="form-group">
-            <label for="horse-sire">Ojciec:</label>
-            <div class="parent-search">
-              <input type="text" id="sire-search" placeholder="🔍 Wyszukaj ojca..." oninput="filterHorses('sire')">
+        <h2>🐴 Dodaj Konia</h2>
+        <form id="horse-form" class="form-container">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="horse-name">Imię:</label>
+              <input type="text" id="horse-name" name="name" maxlength="100" 
+                     placeholder="np. Bucefał, Luna" required autocomplete="off">
+              <span class="error-message"></span>
             </div>
+            <div class="form-group">
+              <label for="horse-gender">Płeć:</label>
+              <select id="horse-gender" name="gender" required>
+                <option value="">Wybierz płeć...</option>
+                <option value="klacz">🐴 Klacz</option>
+                <option value="ogier">🐎 Ogier</option>
+                <option value="wałach">🐴 Wałach</option>
+              </select>
+              <span class="error-message"></span>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="horse-birth-date">Data urodzenia:</label>
+              <input type="date" id="horse-birth-date" name="birth_date">
+              <span class="error-message"></span>
+            </div>
+            <div class="form-group">
+              <label for="horse-breed-select">Rasa (opcjonalne - auto-obliczana):</label>
+              <select id="horse-breed-select" name="breed_id">
+                <option value="">Auto-oblicz z rodziców</option>
+              </select>
+              <div class="form-help">
+                💡 Jeśli wybierzesz rodziców, rasa zostanie automatycznie obliczona
+              </div>
+              <span class="error-message"></span>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="sire-search">🔍 Wyszukaj Ojca:</label>
+            <input type="text" id="sire-search" placeholder="Wpisz imię ojca..." oninput="filterHorses('sire')" autocomplete="off">
             <select id="horse-sire-select" name="sire_id">
-              <option value="">Brak</option>
+              <option value="">Brak ojca</option>
             </select>
             <span class="error-message"></span>
           </div>
+
           <div class="form-group">
-            <label for="horse-dam">Matka:</label>
-            <div class="parent-search">
-              <input type="text" id="dam-search" placeholder="🔍 Wyszukaj matkę..." oninput="filterHorses('dam')">
-            </div>
+            <label for="dam-search">🔍 Wyszukaj Matkę:</label>
+            <input type="text" id="dam-search" placeholder="Wpisz imię matki..." oninput="filterHorses('dam')" autocomplete="off">
             <select id="horse-dam-select" name="dam_id">
-              <option value="">Brak</option>
+              <option value="">Brak matki</option>
             </select>
             <span class="error-message"></span>
           </div>
-          <div class="form-group">
-            <label for="horse-color">Maść:</label>
-            <select id="horse-color-select" name="color_id" required>
-              <option value="">Wybierz maść</option>
-            </select>
-            <span class="error-message"></span>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="horse-color-select">Maść:</label>
+              <select id="horse-color-select" name="color_id" required>
+                <option value="">Wybierz maść...</option>
+              </select>
+              <span class="error-message"></span>
+            </div>
+            <div class="form-group">
+              <label for="horse-breeder-select">Hodowca:</label>
+              <select id="horse-breeder-select" name="breeder_id" required>
+                <option value="">Wybierz hodowcę...</option>
+              </select>
+              <span class="error-message"></span>
+            </div>
           </div>
-          <div class="form-group">
-            <label for="horse-breeder">Hodowca:</label>
-            <select id="horse-breeder-select" name="breeder_id" required>
-              <option value="">Wybierz hodowcę</option>
-            </select>
-            <span class="error-message"></span>
+
+          <div class="breeding-preview" id="breeding-preview" style="display: none;">
+            <h4>🧬 Podgląd krzyżowania</h4>
+            <div id="breeding-result"></div>
           </div>
+
           <div class="form-buttons">
-            <button type="submit">✅ Dodaj</button>
-            <button type="button" onclick="resetForm('horse-form')">❌ Anuluj</button>
+            <button type="submit" class="btn-primary">✅ Dodaj Konia</button>
+            <button type="button" class="btn-secondary" onclick="resetForm('horse-form')">❌ Anuluj</button>
           </div>
         </form>
       </section>
 
+      <!-- DODAJ MAŚĆ -->
       <section id="add-color" class="hidden">
-        <h2> Dodaj Maść</h2>
-        <form id="color-form">
+        <h2>🎨 Dodaj Maść</h2>
+        <form id="color-form" class="form-container">
           <div class="form-group">
-            <label for="color-name">Nazwa:</label>
-            <input type="text" id="color-name" name="name" maxlength="50" required placeholder="np. Gniada, Kara, Siwa">
+            <label for="color-name">Nazwa maści:</label>
+            <input type="text" id="color-name" name="name" maxlength="50" 
+                   placeholder="np. Gniada, Kara, Siwa" required autocomplete="off">
             <span class="error-message"></span>
           </div>
           <div class="form-buttons">
-            <button type="submit">✅ Dodaj</button>
-            <button type="button" onclick="resetForm('color-form')">❌ Anuluj</button>
+            <button type="submit" class="btn-primary">✅ Dodaj Maść</button>
+            <button type="button" class="btn-secondary" onclick="resetForm('color-form')">❌ Anuluj</button>
           </div>
         </form>
       </section>
 
-      <section id="add-breed" class="hidden">
-        <h2>🧬 Dodaj Rasę</h2>
-        <form id="breed-form">
-          <div class="form-group">
-            <label for="breed-name">Nazwa:</label>
-            <select id="breed-name" name="name" required>
-              <option value="">Wybierz rasę</option>
-              <option value="oo">oo</option>
-              <option value="xx">xx</option>
-              <option value="xo">xo</option>
-              <option value="xxoo">xxoo</option>
-            </select>
-            <span class="error-message"></span>
-          </div>
-          <div class="form-buttons">
-            <button type="submit">✅ Dodaj</button>
-            <button type="button" onclick="resetForm('breed-form')">❌ Anuluj</button>
-          </div>
-        </form>
-      </section>
-
+      <!-- RODOWÓD -->
       <section id="pedigree-view" class="hidden">
-        <h2> Rodowód Konia</h2>
+        <h2>🌳 Rodowód Konia</h2>
         <div class="pedigree-controls">
-          <label for="pedigree-depth">Głębokość:</label>
-          <input type="number" id="pedigree-depth" min="1" max="5" value="2">
-          <button onclick="fetchPedigreeHtml()" type="button">🌲 Pokaż Drzewo</button>
+          <div class="form-group">
+            <label for="pedigree-depth">Głębokość rodowodu:</label>
+            <input type="number" id="pedigree-depth" min="1" max="5" value="2" class="depth-input">
+            <button type="button" onclick="fetchPedigreeHtml()" class="btn-primary">🌳 Pokaż Drzewo</button>
+          </div>
         </div>
         <div id="pedigree-tree" class="tree-container">
-          <div class="empty-state">Wybierz konia i ustaw głębokość, aby zobaczyć rodowód</div>
+          <div class="no-data">Wybierz głębokość i kliknij "Pokaż Drzewo"</div>
         </div>
       </section>
 
+      <!-- POTOMSTWO -->
       <section id="offspring-view" class="hidden">
-        <h2> Potomstwo Konia</h2>
+        <h2>👶 Potomstwo Konia</h2>
         <div class="offspring-controls">
-          <label for="offspring-gender">Płeć:</label>
-          <select id="offspring-gender" onchange="fetchOffspring()">
-            <option value="">Wszystkie</option>
-            <option value="klacz">Klacz</option>
-            <option value="ogier">Ogier</option>
-            <option value="wałach">Wałach</option>
-          </select>
-          <label for="offspring-breeder">Hodowca:</label>
-          <select id="offspring-breeder" onchange="fetchOffspring()">
-            <option value="">Wszyscy</option>
-          </select>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="offspring-gender">Filtruj po płci:</label>
+              <select id="offspring-gender">
+                <option value="">Wszystkie płcie</option>
+                <option value="klacz">🐴 Klacze</option>
+                <option value="ogier">🐎 Ogiery</option>
+                <option value="wałach">🐴 Wałachy</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="offspring-breeder">Filtruj po hodowcy:</label>
+              <select id="offspring-breeder">
+                <option value="">Wszyscy hodowcy</option>
+              </select>
+            </div>
+          </div>
         </div>
         <div id="offspring-list" class="horse-grid">
-          <div class="empty-state">Wybierz konia, aby zobaczyć jego potomstwo</div>
+          <div class="no-data">Ładowanie potomstwa...</div>
         </div>
       </section>
     </main>
   </div>
+
+  <style>
+    /* Dodatkowe style dla nowych elementów */
+    .data-tabs {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+      border-bottom: 2px solid #ecf0f1;
+    }
+
+    .tab-button {
+      padding: 12px 20px;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      font-size: 1rem;
+      font-weight: 500;
+      color: #7f8c8d;
+      border-bottom: 3px solid transparent;
+      transition: all 0.3s ease;
+    }
+
+    .tab-button.active {
+      color: #3498db;
+      border-bottom-color: #3498db;
+    }
+
+    .tab-button:hover {
+      color: #2980b9;
+      background: #f8f9fa;
+    }
+
+    .tab-pane {
+      display: block;
+    }
+
+    .tab-pane.hidden {
+      display: none;
+    }
+
+    .data-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+      gap: 15px;
+      margin-top: 20px;
+    }
+
+    .data-item {
+      background: #f8f9fa;
+      border: 1px solid #e9ecef;
+      border-radius: 8px;
+      padding: 15px;
+      transition: all 0.3s ease;
+    }
+
+    .data-item:hover {
+      background: #e9ecef;
+      transform: translateY(-2px);
+    }
+
+    .data-item strong {
+      color: #2c3e50;
+      display: block;
+      margin-bottom: 5px;
+    }
+
+    .breed-info {
+      background: #f8f9fa;
+      border-radius: 10px;
+      padding: 20px;
+      margin-bottom: 20px;
+      border-left: 4px solid #3498db;
+    }
+
+    .breed-rules {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 10px;
+      margin-top: 15px;
+    }
+
+    .rule {
+      background: white;
+      padding: 10px;
+      border-radius: 6px;
+      text-align: center;
+      font-family: monospace;
+      font-weight: bold;
+      border: 1px solid #ddd;
+    }
+
+    .form-help {
+      font-size: 0.85rem;
+      color: #7f8c8d;
+      margin-top: 5px;
+      font-style: italic;
+    }
+
+    .breeding-preview {
+      background: #e8f5e8;
+      border: 1px solid #27ae60;
+      border-radius: 8px;
+      padding: 15px;
+      margin: 15px 0;
+    }
+
+    .breeding-preview h4 {
+      margin: 0 0 10px 0;
+      color: #27ae60;
+    }
+
+    /* Dodatkowe style dla breeding preview */
+    .breeding-info p {
+      margin: 8px 0;
+    }
+
+    .breed-highlight {
+      background: #3498db;
+      color: white;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-weight: bold;
+    }
+
+    .warning {
+      color: #e74c3c !important;
+      font-weight: bold;
+    }
+
+    .success {
+      color: #27ae60 !important;
+      font-weight: bold;
+    }
+
+    .error {
+      color: #e74c3c !important;
+      font-weight: bold;
+    }
+
+    /* Style dla form-help */
+    .form-help {
+      background: #e8f4fd;
+      border-left: 3px solid #3498db;
+      padding: 8px 12px;
+      border-radius: 4px;
+    }
+
+    @media (max-width: 768px) {
+      .data-tabs {
+        flex-wrap: wrap;
+      }
+      
+      .tab-button {
+        flex: 1;
+        min-width: 120px;
+      }
+      
+      .breed-rules {
+        grid-template-columns: 1fr;
+      }
+      
+      .data-list {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
 
   <script src="scripts.js"></script>
 </body>
