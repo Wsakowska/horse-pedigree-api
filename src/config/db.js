@@ -3,7 +3,7 @@ const config = require('../../knexfile');
 
 const knexInstance = knex({
   ...config.development,
-  debug: true // Enable query logging
+  debug: true 
 });
 
 module.exports = knexInstance;

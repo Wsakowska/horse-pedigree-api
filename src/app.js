@@ -24,31 +24,33 @@ app.use((req, res, next) => {
   }
 });
 
-// Middleware do logowania requestów
-app.use((req, res, next) => {
-  const timestamp = new Date().toISOString();
-  const method = req.method;
-  const url = req.originalUrl;
-  const ip = req.ip || req.connection.remoteAddress;
-  
-  console.log(`${timestamp} - ${method} ${url} - IP: ${ip}`);
-  
-  // Loguj body tylko dla POST/PUT i jeśli nie jest zbyt duże
-  if ((method === 'POST' || method === 'PUT') && req.body && Object.keys(req.body).length > 0) {
-    const bodyStr = JSON.stringify(req.body, null, 2);
-    if (bodyStr.length < 1000) { // Ogranicz rozmiar logu
-      console.log('Request Body:', bodyStr);
-    } else {
-      console.log('Request Body: [Large body omitted]');
+// Middleware do logowania requestów (tylko jeśli nie jest to test)
+if (process.env.NODE_ENV !== 'test') {
+  app.use((req, res, next) => {
+    const timestamp = new Date().toISOString();
+    const method = req.method;
+    const url = req.originalUrl;
+    const ip = req.ip || req.connection.remoteAddress;
+    
+    console.log(`${timestamp} - ${method} ${url} - IP: ${ip}`);
+    
+    // Loguj body tylko dla POST/PUT i jeśli nie jest zbyt duże
+    if ((method === 'POST' || method === 'PUT') && req.body && Object.keys(req.body).length > 0) {
+      const bodyStr = JSON.stringify(req.body, null, 2);
+      if (bodyStr.length < 1000) { // Ogranicz rozmiar logu
+        console.log('Request Body:', bodyStr);
+      } else {
+        console.log('Request Body: [Large body omitted]');
+      }
     }
-  }
-  
-  if (req.query && Object.keys(req.query).length > 0) {
-    console.log('Query Params:', JSON.stringify(req.query, null, 2));
-  }
-  
-  next();
-});
+    
+    if (req.query && Object.keys(req.query).length > 0) {
+      console.log('Query Params:', JSON.stringify(req.query, null, 2));
+    }
+    
+    next();
+  });
+}
 
 // Serve static files from public folder
 app.use(express.static(path.join(__dirname, '../public'), {
@@ -122,37 +124,39 @@ app.use('/api/horses', horseRoutes);
 app.use('/api/colors', colorRoutes);
 app.use('/api/breeds', breedRoutes);
 
-// Rate limiting dla API (podstawowa ochrona)
-const requestCounts = new Map();
-const RATE_LIMIT = 100; // requests per minute
-const RATE_WINDOW = 60000; // 1 minute
+// Rate limiting dla API (podstawowa ochrona) - tylko jeśli nie jest to test
+if (process.env.NODE_ENV !== 'test') {
+  const requestCounts = new Map();
+  const RATE_LIMIT = 100; // requests per minute
+  const RATE_WINDOW = 60000; // 1 minute
 
-app.use('/api/*', (req, res, next) => {
-  const ip = req.ip || req.connection.remoteAddress;
-  const now = Date.now();
-  
-  if (!requestCounts.has(ip)) {
-    requestCounts.set(ip, { count: 1, resetTime: now + RATE_WINDOW });
-  } else {
-    const userRequests = requestCounts.get(ip);
+  app.use('/api/*', (req, res, next) => {
+    const ip = req.ip || req.connection.remoteAddress;
+    const now = Date.now();
     
-    if (now > userRequests.resetTime) {
-      userRequests.count = 1;
-      userRequests.resetTime = now + RATE_WINDOW;
+    if (!requestCounts.has(ip)) {
+      requestCounts.set(ip, { count: 1, resetTime: now + RATE_WINDOW });
     } else {
-      userRequests.count++;
+      const userRequests = requestCounts.get(ip);
       
-      if (userRequests.count > RATE_LIMIT) {
-        return res.status(429).json({
-          error: 'Zbyt wiele zapytań. Spróbuj ponownie za minutę.',
-          retry_after: Math.ceil((userRequests.resetTime - now) / 1000)
-        });
+      if (now > userRequests.resetTime) {
+        userRequests.count = 1;
+        userRequests.resetTime = now + RATE_WINDOW;
+      } else {
+        userRequests.count++;
+        
+        if (userRequests.count > RATE_LIMIT) {
+          return res.status(429).json({
+            error: 'Zbyt wiele zapytań. Spróbuj ponownie za minutę.',
+            retry_after: Math.ceil((userRequests.resetTime - now) / 1000)
+          });
+        }
       }
     }
-  }
-  
-  next();
-});
+    
+    next();
+  });
+}
 
 // 404 handler for API routes
 app.use('/api/*', (req, res) => {
@@ -235,67 +239,73 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Handle uncaught exceptions
-process.on('uncaughtException', (err) => {
-  console.error('Uncaught Exception:', err);
-  console.error('Stack:', err.stack);
-  
-  // Graceful shutdown
-  process.exit(1);
-});
+// Handle uncaught exceptions - tylko jeśli nie jest to test
+if (process.env.NODE_ENV !== 'test') {
+  process.on('uncaughtException', (err) => {
+    console.error('Uncaught Exception:', err);
+    console.error('Stack:', err.stack);
+    
+    // Graceful shutdown
+    process.exit(1);
+  });
 
-// Handle unhandled promise rejections
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('Unhandled Rejection at:', promise);
-  console.error('Reason:', reason);
-  
-  // Graceful shutdown
-  process.exit(1);
-});
+  // Handle unhandled promise rejections
+  process.on('unhandledRejection', (reason, promise) => {
+    console.error('Unhandled Rejection at:', promise);
+    console.error('Reason:', reason);
+    
+    // Graceful shutdown
+    process.exit(1);
+  });
 
-// Graceful shutdown handling
-process.on('SIGTERM', async () => {
-  console.log('SIGTERM received, shutting down gracefully...');
-  
-  // Close database connections
-  try {
-    const knex = require('./config/db');
-    await knex.destroy();
-    console.log('Database connections closed.');
-  } catch (error) {
-    console.error('Error closing database connections:', error);
-  }
-  
-  process.exit(0);
-});
+  // Graceful shutdown handling
+  process.on('SIGTERM', async () => {
+    console.log('SIGTERM received, shutting down gracefully...');
+    
+    // Close database connections
+    try {
+      const knex = require('./config/db');
+      await knex.destroy();
+      console.log('Database connections closed.');
+    } catch (error) {
+      console.error('Error closing database connections:', error);
+    }
+    
+    process.exit(0);
+  });
 
-process.on('SIGINT', async () => {
-  console.log('SIGINT received, shutting down gracefully...');
-  
-  // Close database connections
-  try {
-    const knex = require('./config/db');
-    await knex.destroy();
-    console.log('Database connections closed.');
-  } catch (error) {
-    console.error('Error closing database connections:', error);
-  }
-  
-  process.exit(0);
-});
+  process.on('SIGINT', async () => {
+    console.log('SIGINT received, shutting down gracefully...');
+    
+    // Close database connections
+    try {
+      const knex = require('./config/db');
+      await knex.destroy();
+      console.log('Database connections closed.');
+    } catch (error) {
+      console.error('Error closing database connections:', error);
+    }
+    
+    process.exit(0);
+  });
+}
 
-const PORT = process.env.PORT || 3000;
-const HOST = process.env.HOST || 'localhost';
+// Export app (bez uruchamiania serwera w testach)
+module.exports = app;
 
-const server = app.listen(PORT, HOST, () => {
-  console.log(' === HORSE PEDIGREE API STARTED ===');
-  console.log(` Server: http://${HOST}:${PORT}`);
-  console.log(` Health check: http://${HOST}:${PORT}/api/health`);
-  console.log(` API v1: http://${HOST}:${PORT}/api/v1/`);
-  console.log(` Frontend: http://${HOST}:${PORT}`);
-  console.log(` Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(` Started at: ${new Date().toISOString()}`);
-  console.log('=====================================');
-});
+// Uruchom serwer tylko jeśli plik jest uruchamiany bezpośrednio
+if (require.main === module) {
+  const PORT = process.env.PORT || 3000;
+  const HOST = process.env.HOST || 'localhost';
 
-module.exports = server;
+  const server = app.listen(PORT, HOST, () => {
+    console.log(' === HORSE PEDIGREE API STARTED ===');
+    console.log(` Server: http://${HOST}:${PORT}`);
+    console.log(` Health check: http://${HOST}:${PORT}/api/health`);
+    console.log(` API v1: http://${HOST}:${PORT}/api/v1/`);
+    console.log(` Frontend: http://${HOST}:${PORT}`);
+    console.log(` Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(` Started at: ${new Date().toISOString()}`);
+    console.log('=====================================');
+  });
+}

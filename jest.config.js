@@ -1,55 +1,36 @@
+// jest.config.js
 module.exports = {
-  // Konfiguracja główna
   testEnvironment: 'node',
-  setupFilesAfterEnv: ['<rootDir>/__tests__/setup.js'],
+  verbose: true,
   collectCoverageFrom: [
     'src/**/*.js',
-    'public/**/*.js',
+    '!src/app.js', // Wykluczamy app.js z coverage
     '!src/migrations/**',
-    '!src/seeds/**',
-    '!**/node_modules/**'
+    '!src/seeds/**'
   ],
   coverageDirectory: 'coverage',
   coverageReporters: ['text', 'lcov', 'html'],
-  testMatch: [
-    '**/__tests__/**/*.test.js'
+  setupFilesAfterEnv: [
+    '<rootDir>/__tests__/backend/setup.js'
   ],
-  
-  // Projekty - backend i frontend
+  testMatch: [
+    '**/__tests__/backend/**/*.test.js'
+  ],
+  testTimeout: 30000,
+  forceExit: true,
+  detectOpenHandles: true,
   projects: [
     {
       displayName: 'backend',
-      testMatch: ['<rootDir>/__tests__/backend/**/*.test.js'],
       testEnvironment: 'node',
+      testMatch: ['<rootDir>/__tests__/backend/**/*.test.js'],
       setupFilesAfterEnv: ['<rootDir>/__tests__/backend/setup.js']
     },
     {
       displayName: 'frontend',
-      testMatch: ['<rootDir>/__tests__/frontend/**/*.test.js'],
       testEnvironment: 'jsdom',
+      testMatch: ['<rootDir>/__tests__/frontend/**/*.test.js'],
       setupFilesAfterEnv: ['<rootDir>/__tests__/frontend/setup.js']
     }
-  ],
-  
-  // Timeouts
-  testTimeout: 30000,
-  
-  // Mock patterns
-  moduleNameMapping: {
-    '^@/(.*)$': '<rootDir>/src/$1'
-  },
-  
-  // Transform patterns dla ES6
-  transform: {
-    '^.+\\.js$': 'babel-jest'
-  },
-  
-  // Verbose output
-  verbose: true,
-  
-  // Clear mocks between tests
-  clearMocks: true,
-  
-  // Stop on first failure in CI
-  bail: process.env.CI ? 1 : 0
+  ]
 };

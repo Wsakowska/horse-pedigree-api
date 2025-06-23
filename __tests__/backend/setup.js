@@ -9,7 +9,7 @@ const testDbConfig = {
     database: 'horse_pedigree_test',
     user: 'user',
     password: 'password',
-    port: 5432
+    port: 5433  // Port testowej bazy
   },
   migrations: {
     directory: './src/migrations'
@@ -17,7 +17,10 @@ const testDbConfig = {
   seeds: {
     directory: './src/seeds'
   },
-  debug: false
+  pool: {
+    min: 1,
+    max: 2
+  }
 };
 
 let testKnex;
@@ -26,13 +29,17 @@ let testKnex;
 beforeAll(async () => {
   console.log('🧪 Konfigurowanie testowej bazy danych...');
   
-  // Utwórz połączenie
-  testKnex = knex(testDbConfig);
-  
-  // Zapisz jako globalną zmienną
-  global.testKnex = testKnex;
-  
   try {
+    // Utwórz połączenie
+    testKnex = knex(testDbConfig);
+    
+    // Zapisz jako globalną zmienną
+    global.testKnex = testKnex;
+    
+    // Test połączenia
+    await testKnex.raw('SELECT 1');
+    console.log('✅ Połączenie z bazą testową OK');
+    
     // Uruchom migracje
     await testKnex.migrate.latest();
     console.log('✅ Migracje wykonane pomyślnie');
@@ -42,23 +49,36 @@ beforeAll(async () => {
     console.log('✅ Dane testowe załadowane');
     
   } catch (error) {
-    console.error('❌ Błąd podczas konfiguracji bazy:', error);
+    console.error('❌ Błąd podczas konfiguracji bazy:', error.message);
+    
+    if (error.message.includes('does not exist')) {
+      console.log('💡 Uruchom bazę testową: docker-compose -f docker-compose.test.yml up -d');
+    }
+    
+    if (error.message.includes('ECONNREFUSED')) {
+      console.log('💡 Sprawdź czy PostgreSQL działa na porcie 5433');
+    }
+    
     throw error;
   }
-});
+}, 60000); // 60 sekund timeout
 
 // Cleanup po każdym teście
 afterEach(async () => {
   if (testKnex) {
-    // Wyczyść tabele w odpowiedniej kolejności
-    await testKnex('horses').del();
-    await testKnex('breeders').del(); 
-    await testKnex('colors').del();
-    await testKnex('breeds').del();
-    await testKnex('countries').del();
-    
-    // Ponownie załaduj seedy
-    await testKnex.seed.run();
+    try {
+      // Wyczyść tabele w odpowiedniej kolejności (usuń dzieci przed rodzicami)
+      await testKnex('horses').del();
+      await testKnex('breeders').del(); 
+      await testKnex('colors').del();
+      await testKnex('breeds').del();
+      await testKnex('countries').del();
+      
+      // Ponownie załaduj podstawowe seedy
+      await testKnex.seed.run();
+    } catch (error) {
+      console.warn('⚠️ Błąd podczas czyszczenia danych:', error.message);
+    }
   }
 });
 
@@ -66,22 +86,31 @@ afterEach(async () => {
 afterAll(async () => {
   if (testKnex) {
     console.log('🧹 Zamykanie połączenia z testową bazą danych...');
-    await testKnex.destroy();
+    try {
+      await testKnex.destroy();
+    } catch (error) {
+      console.warn('⚠️ Błąd podczas zamykania połączenia:', error.message);
+    }
   }
 });
 
-// Funkcje pomocnicze dla testów
+// Funkcje pomocnicze dla testów (uproszczone)
 global.createTestCountry = async (data = {}) => {
   const defaultData = {
     code: 'TS',
     name: 'Test Country'
   };
   
-  const [country] = await testKnex('countries')
-    .insert({ ...defaultData, ...data })
-    .returning('*');
-  
-  return country;
+  try {
+    const [country] = await testKnex('countries')
+      .insert({ ...defaultData, ...data })
+      .returning('*');
+    
+    return country;
+  } catch (error) {
+    console.error('Błąd tworzenia test country:', error.message);
+    throw error;
+  }
 };
 
 global.createTestBreed = async (data = {}) => {
@@ -89,11 +118,16 @@ global.createTestBreed = async (data = {}) => {
     name: 'oo'
   };
   
-  const [breed] = await testKnex('breeds')
-    .insert({ ...defaultData, ...data })
-    .returning('*');
-  
-  return breed;
+  try {
+    const [breed] = await testKnex('breeds')
+      .insert({ ...defaultData, ...data })
+      .returning('*');
+    
+    return breed;
+  } catch (error) {
+    console.error('Błąd tworzenia test breed:', error.message);
+    throw error;
+  }
 };
 
 global.createTestColor = async (data = {}) => {
@@ -101,11 +135,16 @@ global.createTestColor = async (data = {}) => {
     name: 'Test Color'
   };
   
-  const [color] = await testKnex('colors')
-    .insert({ ...defaultData, ...data })
-    .returning('*');
-  
-  return color;
+  try {
+    const [color] = await testKnex('colors')
+      .insert({ ...defaultData, ...data })
+      .returning('*');
+    
+    return color;
+  } catch (error) {
+    console.error('Błąd tworzenia test color:', error.message);
+    throw error;
+  }
 };
 
 global.createTestBreeder = async (data = {}) => {
@@ -121,15 +160,20 @@ global.createTestBreeder = async (data = {}) => {
     country_code: countryCode
   };
   
-  const [breeder] = await testKnex('breeders')
-    .insert({ ...defaultData, ...data })
-    .returning('*');
-  
-  return breeder;
+  try {
+    const [breeder] = await testKnex('breeders')
+      .insert({ ...defaultData, ...data })
+      .returning('*');
+    
+    return breeder;
+  } catch (error) {
+    console.error('Błąd tworzenia test breeder:', error.message);
+    throw error;
+  }
 };
 
 global.createTestHorse = async (data = {}) => {
-  // Upewnij się, że breed, color i breeder istnieją
+  // Upewnij się, że zależności istnieją
   let breedId = data.breed_id;
   if (!breedId) {
     const breed = await createTestBreed();
@@ -157,18 +201,25 @@ global.createTestHorse = async (data = {}) => {
     breeder_id: breederId
   };
   
-  const [horse] = await testKnex('horses')
-    .insert({ ...defaultData, ...data })
-    .returning('*');
-  
-  return horse;
+  try {
+    const [horse] = await testKnex('horses')
+      .insert({ ...defaultData, ...data })
+      .returning('*');
+    
+    return horse;
+  } catch (error) {
+    console.error('Błąd tworzenia test horse:', error.message);
+    throw error;
+  }
 };
 
-// Mock dla console w testach
-global.console = {
-  ...console,
-  log: jest.fn(),
-  error: jest.fn(),
-  warn: jest.fn(),
-  info: jest.fn()
-};
+// Mock dla console w testach (opcjonalnie)
+if (process.env.NODE_ENV === 'test') {
+  global.console = {
+    ...console,
+    log: jest.fn(),
+    error: console.error, // Zachowaj error dla debugowania
+    warn: console.warn,   // Zachowaj warn dla debugowania
+    info: jest.fn()
+  };
+}
