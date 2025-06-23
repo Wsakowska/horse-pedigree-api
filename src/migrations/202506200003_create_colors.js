@@ -8,3 +8,10 @@ exports.up = function (knex) {
 exports.down = function (knex) {
   return knex.schema.dropTable('colors');
 };
+
+/*
+CREATE TABLE colors (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(50) NOT NULL
+);
+*/

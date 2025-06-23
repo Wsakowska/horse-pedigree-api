@@ -9,3 +9,11 @@ exports.up = function (knex) {
 exports.down = function (knex) {
   return knex.schema.dropTable('breeders');
 };
+
+/*
+CREATE TABLE breeders (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(100) NOT NULL,
+  country_code VARCHAR(2) REFERENCES countries(code)
+);
+*/

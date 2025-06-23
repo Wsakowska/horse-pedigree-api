@@ -10,3 +10,11 @@ exports.up = function (knex) {
 exports.down = function (knex) {
   return knex.schema.dropTable('breeds');
 };
+
+/*
+CREATE TABLE breeds (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(4) NOT NULL UNIQUE,
+  CONSTRAINT breeds_name_check CHECK (name IN ('oo', 'xx', 'xo', 'xxoo'))
+);
+*/

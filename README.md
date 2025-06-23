@@ -585,7 +585,6 @@ W przypadku problemów:
 
 **🐎 Horse Pedigree API** - Profesjonalna baza rodowodowa koni z automatycznym obliczaniem ras i walidacją krzyżowania.
 
-# Plan B - reset całej bazy
 docker-compose down -v
 docker-compose up -d
 sleep 10
