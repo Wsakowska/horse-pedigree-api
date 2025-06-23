@@ -1,5 +1,4 @@
 exports.seed = async function (knex) {
-  // Usuń istniejące dane
   await knex('horses').del();
   
   // ETAP 1: Dodaj konie podstawowe (bez rodziców) BEZ ID

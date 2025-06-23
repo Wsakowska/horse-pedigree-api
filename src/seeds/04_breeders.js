@@ -1,8 +1,6 @@
 exports.seed = async function (knex) {
-  // Usuń istniejące dane
   await knex('breeders').del();
   
-  // Wstaw nowe dane BEZ podawania ID
   await knex('breeders').insert([
     { name: 'Hodowla Krakowska', country_code: 'PL' },
     { name: 'Stud Niemcy', country_code: 'DE' },
