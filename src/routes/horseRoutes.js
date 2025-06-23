@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const horseController = require('../controllers/horseController');
 
-// WAŻNE: Endpoint breeding/check MUSI być przed /:id
+// Endpoint breeding/check MUSI być przed /:id
 router.get('/breeding/check', horseController.checkBreeding);
 
 // Podstawowe operacje CRUD

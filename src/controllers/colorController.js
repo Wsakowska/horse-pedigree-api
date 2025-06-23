@@ -5,6 +5,7 @@ const colorSchema = Joi.object({
   name: Joi.string().max(50).required(),
 });
 
+// GET - Pobiera wszystkie kolory z tabeli colors.
 exports.getAllColors = async (req, res) => {
   try {
     const colors = await knex('colors').select('*');
@@ -14,6 +15,7 @@ exports.getAllColors = async (req, res) => {
   }
 };
 
+// POST - Tworzy nowy kolor w bazie danych.
 exports.createColor = async (req, res) => {
   const { error } = colorSchema.validate(req.body);
   if (error) return res.status(400).json({ error: error.details[0].message });
@@ -26,6 +28,7 @@ exports.createColor = async (req, res) => {
   }
 };
 
+// PUT - Aktualizuje istniejący kolor w bazie danych na podstawie id.
 exports.updateColor = async (req, res) => {
   const { error } = colorSchema.validate(req.body);
   if (error) return res.status(400).json({ error: error.details[0].message });
@@ -42,6 +45,7 @@ exports.updateColor = async (req, res) => {
   }
 };
 
+// DELETE - Usuwa kolor z bazy danych na podstawie id.
 exports.deleteColor = async (req, res) => {
   try {
     const deleted = await knex('colors').where({ id: req.params.id }).del();

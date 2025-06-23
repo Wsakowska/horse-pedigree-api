@@ -6,6 +6,7 @@ const breederSchema = Joi.object({
   country_code: Joi.string().length(2).required(),
 });
 
+// GET - Pobiera wszystkich hodowców z tabeli breeders.
 exports.getAllBreeders = async (req, res) => {
   try {
     const breeders = await knex('breeders').select('*');
@@ -15,6 +16,7 @@ exports.getAllBreeders = async (req, res) => {
   }
 };
 
+// POST - Tworzy nowego hodowcę w bazie danych.
 exports.createBreeder = async (req, res) => {
   const { error } = breederSchema.validate(req.body);
   if (error) return res.status(400).json({ error: error.details[0].message });
@@ -33,6 +35,7 @@ exports.createBreeder = async (req, res) => {
   }
 };
 
+// PUT - Aktualizuje istniejącego hodowcę na podstawie id. 
 exports.updateBreeder = async (req, res) => {
   const { error } = breederSchema.validate(req.body);
   if (error) return res.status(400).json({ error: error.details[0].message });
@@ -55,11 +58,12 @@ exports.updateBreeder = async (req, res) => {
   }
 };
 
+// DELETE - Usuwa hodowcę z bazy danych na podstawie id.
 exports.deleteBreeder = async (req, res) => {
   try {
     const deleted = await knex('breeders').where({ id: req.params.id }).del();
     if (!deleted) return res.status(404).json({ error: 'Breeder not found' });
-    res.status(204).send();
+    res.status(204).send(); 
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

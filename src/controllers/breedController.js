@@ -5,6 +5,7 @@ const breedSchema = Joi.object({
   name: Joi.string().valid('oo', 'xx', 'xo', 'xxoo').required(),
 });
 
+//GET - Pobiera wszystkie rasy z tabeli breeds.
 exports.getAllBreeds = async (req, res) => {
   try {
     const breeds = await knex('breeds').select('*');
@@ -14,6 +15,7 @@ exports.getAllBreeds = async (req, res) => {
   }
 };
 
+//POST - Cel: Tworzy nową rasę w bazie danych.
 exports.createBreed = async (req, res) => {
   const { error } = breedSchema.validate(req.body);
   if (error) return res.status(400).json({ error: error.details[0].message });
@@ -26,6 +28,7 @@ exports.createBreed = async (req, res) => {
   }
 };
 
+//PUT - Aktualizuje istniejącą rasę na podstawie id.
 exports.updateBreed = async (req, res) => {
   const { error } = breedSchema.validate(req.body);
   if (error) return res.status(400).json({ error: error.details[0].message });
@@ -42,6 +45,7 @@ exports.updateBreed = async (req, res) => {
   }
 };
 
+//DELETE - Usuwa rasę z bazy danych na podstawie id.
 exports.deleteBreed = async (req, res) => {
   try {
     const deleted = await knex('breeds').where({ id: req.params.id }).del();

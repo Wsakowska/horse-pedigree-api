@@ -4,8 +4,8 @@ const { calculateBreed, getPedigree, getOffspring, generatePedigreeHtml: generat
 
 const horseSchema = Joi.object({
   name: Joi.string().max(100).required(),
-  breed_id: Joi.number().integer().optional().allow(null), // opcjonalne
-  birth_date: Joi.date().max('now').optional().allow(null), // POPRAWKA: max('now') = nie można w przyszłości
+  breed_id: Joi.number().integer().optional().allow(null), 
+  birth_date: Joi.date().max('now').optional().allow(null), 
   gender: Joi.string().valid('klacz', 'ogier', 'wałach').required(),
   sire_id: Joi.number().integer().optional().allow(null),
   dam_id: Joi.number().integer().optional().allow(null),
@@ -13,24 +13,26 @@ const horseSchema = Joi.object({
   breeder_id: Joi.number().integer().required(),
 });
 
+// Centralizuje obsługę błędów bazy danych (PostgreSQL), mapując kody błędów na odpowiednie odpowiedzi HTTP.
 const handleDatabaseError = (error, res) => {
   console.error('Database error:', error);
   
-  if (error.code === '23505') { // unique violation
+  if (error.code === '23505') { 
     return res.status(409).json({ error: 'Rekord o tych danych już istnieje' });
   }
   
-  if (error.code === '23503') { // foreign key violation
+  if (error.code === '23503') { 
     return res.status(400).json({ error: 'Nie można usunąć - rekord jest używany w innych tabelach' });
   }
   
-  if (error.code === '23514') { // check constraint violation
+  if (error.code === '23514') { 
     return res.status(400).json({ error: 'Dane nie spełniają warunków walidacji bazodanowych' });
   }
   
   return res.status(500).json({ error: 'Błąd serwera bazy danych' });
 };
 
+// GET - Pobiera listę koni z opcjonalnymi filtrami (gender, breed_id) i paginacją (limit, offset).
 exports.getAllHorses = async (req, res) => {
   try {
     const { limit = 100, offset = 0, gender, breed_id } = req.query;
@@ -57,9 +59,10 @@ exports.getAllHorses = async (req, res) => {
   }
 };
 
+// GET - Pobiera konia na podstawie ID.
 exports.getHorseById = async (req, res) => {
   try {
-    const horse = await knex('horses').where({ id: req.params.id }).first();
+    const horse = await knex('horses').where({ id: req.params.id }).first(); //req.params.id (np. /horses/1 → req.params.id = '1').
     if (!horse) {
       return res.status(404).json({ error: 'Koń nie znaleziony' });
     }
@@ -69,10 +72,11 @@ exports.getHorseById = async (req, res) => {
   }
 };
 
+// POST - Tworzy nowego konia w bazie danych.
 exports.createHorse = async (req, res) => {
   const { error } = horseSchema.validate(req.body);
   if (error) {
-    // POPRAWKA: Lepszy komunikat dla daty
+    // Komunikat dla daty
     let errorMessage = error.details[0].message;
     if (error.details[0].path.includes('birth_date')) {
       errorMessage = 'Data urodzenia nie może być w przyszłości';
@@ -152,10 +156,10 @@ exports.createHorse = async (req, res) => {
   }
 };
 
+// PUT - Aktualizuje istniejącego konia na podstawie ID.
 exports.updateHorse = async (req, res) => {
   const { error } = horseSchema.validate(req.body);
   if (error) {
-    // POPRAWKA: Lepszy komunikat dla daty
     let errorMessage = error.details[0].message;
     if (error.details[0].path.includes('birth_date')) {
       errorMessage = 'Data urodzenia nie może być w przyszłości';
@@ -224,7 +228,7 @@ exports.updateHorse = async (req, res) => {
       });
     }
 
-    // ZMIANA: Oblicz nową rasę jeśli są rodzice, w przeciwnym razie zachowaj wybraną
+    // Oblicz nową rasę jeśli są rodzice, w przeciwnym razie zachowaj wybraną
     let updateData = { ...req.body };
     if (sire_id && dam_id) {
       const calculatedBreed = await calculateBreed(knex, sire_id, dam_id);
@@ -249,6 +253,7 @@ exports.updateHorse = async (req, res) => {
   }
 };
 
+// DELETE - Usuwa konia z bazy danych na podstawie ID.
 exports.deleteHorse = async (req, res) => {
   try {
     const horseId = req.params.id;
@@ -274,6 +279,7 @@ exports.deleteHorse = async (req, res) => {
   }
 };
 
+// GET - Pobiera rodowód konia na podstawie ID i głębokości.
 exports.getPedigree = async (req, res) => {
   const { id, depth } = req.params;
   
@@ -295,6 +301,7 @@ exports.getPedigree = async (req, res) => {
   }
 };
 
+// GET - Pobiera potomstwo konia na podstawie ID, z opcjonalnymi filtrami (
 exports.getOffspring = async (req, res) => {
   const { id } = req.params;
   const { gender, breeder_id, limit = 50, offset = 0 } = req.query;
@@ -359,6 +366,7 @@ exports.getOffspring = async (req, res) => {
   }
 };
 
+// GET - Pobiera rodowód konia w formacie HTML na podstawie ID i głębokości.
 exports.getPedigreeHtml = async (req, res) => {
   const { id, depth } = req.params;
   
@@ -425,7 +433,7 @@ exports.checkBreeding = async (req, res) => {
       return res.status(400).json({ error: 'Matka musi być klaczą (wałach nie może mieć potomstwa)' });
     }
 
-    // NOWE: Sprawdź niedozwolone relacje rodzic-dziecko
+    // Sprawdź niedozwolone relacje rodzic-dziecko
     let breedingProblems = [];
     
     // Sprawdź czy ojciec jest synem matki (matka + syn)
@@ -490,13 +498,13 @@ exports.checkBreeding = async (req, res) => {
     let riskLevel = 'low';
     
     if (isInbreeding) {
-      recommendation = `⚠️ WYSOKIE RYZYKO: Krzyżowanie ${inbreedingType}. Może prowadzić do problemów genetycznych.`;
+      recommendation = ` WYSOKIE RYZYKO: Krzyżowanie ${inbreedingType}. Może prowadzić do problemów genetycznych.`;
       riskLevel = 'high';
     } else if (commonAncestors.length > 0) {
-      recommendation = `⚠️ ŚREDNIE RYZYKO: Wykryto wspólnych przodków. Umiarkowane pokrewieństwo.`;
+      recommendation = ` ŚREDNIE RYZYKO: Wykryto wspólnych przodków. Umiarkowane pokrewieństwo.`;
       riskLevel = 'medium';
     } else {
-      recommendation = `✅ NISKIE RYZYKO: Brak bliskiego pokrewieństwa. Krzyżowanie zalecane.`;
+      recommendation = ` NISKIE RYZYKO: Brak bliskiego pokrewieństwa. Krzyżowanie zalecane.`;
       riskLevel = 'low';
     }
 
