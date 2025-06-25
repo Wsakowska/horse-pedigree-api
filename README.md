@@ -532,14 +532,6 @@ Zwraca:
 4. Push branch: `git push origin feature/AmazingFeature`
 5. Otwórz Pull Request
 
-### Guidelines
-- Pisz testy dla nowych funkcji
-- Dokumentuj zmiany w API
-- Zachowaj istniejący style kodu
-- Aktualizuj README jeśli potrzeba
-
-## 📝 Changelog
-
 ### v1.1.0 (Current)
 - ✅ Kompletne pokrycie testowe
 - ✅ Breeding validation system
@@ -561,7 +553,7 @@ MIT License - szczegóły w pliku `LICENSE`
 
 ## 👥 Authors
 
-- **Student Name** - *Initial work* - [GitHub](https://github.com/username)
+- Wiktoria Sakowska 
 
 ## 🙏 Acknowledgments
 
@@ -570,24 +562,3 @@ MIT License - szczegóły w pliku `LICENSE`
 - Node.js ecosystem
 - Jest testing framework
 - Express.js framework
-
-## 🆘 Support
-
-W przypadku problemów:
-
-1. Sprawdź [Issues](https://github.com/repo/issues)
-2. Przeczytaj dokumentację API
-3. Uruchom testy: `npm test`
-4. Sprawdź logi: `npm run logs`
-5. Zrestartuj serwis: `npm run db:fresh`
-
----
-
-**🐎 Horse Pedigree API** - Profesjonalna baza rodowodowa koni z automatycznym obliczaniem ras i walidacją krzyżowania.
-
-docker-compose down -v
-docker-compose up -d
-sleep 10
-npm run migrate
-npm run seed
-npm start
